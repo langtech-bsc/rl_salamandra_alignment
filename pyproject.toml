@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rl_salamandra_alignment"
+version = "0.1.0"
+description = "Aligning Salamandra Models using Reinforcement Learning"
+readme = "README.rst"
+authors = [
+  {name = "LangTech BSC", email = "langtech@bsc.es"}
+]
+maintainers = [
+  {name = "LangTech BSC", email = "langtech@bsc.es"}
+]
+classifiers = [
+
+]
+license = {text = "Apache Software License 2.0"}
+dependencies = [
+  
+]
+
+[project.optional-dependencies]
+dev = [
+    "coverage",  # testing
+    "mypy",  # linting
+    "pytest",  # testing
+    "ruff"  # linting
+]
+
+[project.urls]
+
+bugs = "https://github.com/langtech-bsc/rl_salamandra_alignment/issues"
+changelog = "https://github.com/langtech-bsc/rl_salamandra_alignment/blob/master/changelog.md"
+homepage = "https://github.com/langtech-bsc/rl_salamandra_alignment"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+"*" = ["*.*"]
+
+
+
+
+# Mypy
+# ----
+
+[tool.mypy]
+files = "."
+
+# Use strict defaults
+strict = true
+warn_unreachable = true
+warn_no_return = true
+
+[[tool.mypy.overrides]]
+# Don't require test functions to include types
+module = "tests.*"
+allow_untyped_defs = true
+disable_error_code = "attr-defined"
+
