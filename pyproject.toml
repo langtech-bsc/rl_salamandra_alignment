@@ -21,6 +21,10 @@ dependencies = [
   
 ]
 
+[project.scripts]
+rl_salamandra_mn5 = "rl_salamandra_alignment.cli:main"
+rl_salamandra_convert_dataset = "rl_salamandra_alignment.convert_dataset:main_convert"
+
 [project.optional-dependencies]
 dev = [
     "coverage",  # testing
