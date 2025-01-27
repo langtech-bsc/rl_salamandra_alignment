@@ -9,7 +9,7 @@ def convert_dataset(
     dataset_input_path: str,
     dataset_output_path: str
 ) -> bool:
-    """Convert HF datasets to a format that can be run locally in MN5
+    """Convert HF datasets to a format that can be loaded locally in MN5
 
     Args:
         dataset_input_path (str): Path to dataset downloaded from HF
