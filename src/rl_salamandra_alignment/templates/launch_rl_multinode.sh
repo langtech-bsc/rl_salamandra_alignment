@@ -23,19 +23,31 @@
 
 {{ENVIRONMENT_VARIABLES}}
 
+# Dataset for RL
+export RL_DATASET_PATH={{RL_DATASET_PATH}}
+
 # Activate TRL environment
 source $VENV_DIR/bin/activate
 echo "Output directory:"
-echo $OUTPUT_DIR
+echo $TRAINING_OUTPUT_DIR
 echo "Dataset:"
 echo $RL_DATASET_PATH
+
+export MASTER_ADDR=$SLURM_LAUNCH_NODE_IPADDR
+
+# Inspecting:
+echo xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+echo "master addr: $MASTER_ADDR"
+echo "master port: $MASTER_PORT"
+echo "num nodes: $NNODES"
+echo xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # =======================================
 # 2. Setting up cache and wandb
 # =======================================
 
 # Manage Cache
-export PATH_CACHE="$OUTPUT_DIR/cache"
+export PATH_CACHE={{CACHE_DIR}}
 mkdir -p $PATH_CACHE
 export HF_HOME=$PATH_CACHE
 export HUGGINGFACE_HOME=$PATH_CACHE
@@ -47,11 +59,14 @@ rm -rf $PATH_CACHE
 # WANDB:
 timestamp=$(date +"%Y%m%d-%H.%M.%S")
 
-export WANDB_PROJECT="{{WANDB_PROJECT}}"
-export WANDB_NAME="{{WANDB_NAME}}"$SLURM_JOB_ID"_"$timestamp
+# WANDB_PROJECT should be defined in ENVIRONMENT_VARIABLES
+# export WANDB_PROJECT="..."
+# WANDB_NAME should be defined in ENVIRONMENT_VARIABLES
+export WANDB_NAME="$WANDB_NAME"$SLURM_JOB_ID"_"$timestamp
 export WANDB_MODE=offline
 export WANDB_INIT_TIMEOUT=600
-export WANDB_DIR="{{WANDB_DIR}}"
+# WANDB_DIR should be defined in ENVIRONMENT_VARIABLES
+# export WANDB_DIR="wandb"
 mkdir -p $WANDB_DIR
 export WANDB_CONFIG_DIR=$WANDB_DIR/config
 
@@ -84,7 +99,7 @@ torchrun_distributed_args=(
     #--master-port $MPORT
     #--node-rank $RANK
     #--rdzv-conf is_host=True
-    --log-dir $OUTPUT_DIR/torch_run_logs
+    --log-dir $TRAINING_OUTPUT_DIR/torch_run_logs
 )
 
 # =======================================
@@ -93,7 +108,7 @@ torchrun_distributed_args=(
 
 # Convert dataset
 OLD_RL_DATASET_PATH=$RL_DATASET_PATH
-export RL_DATASET_PATH="$PATH_CACHE/dpo_dataset"
+export RL_DATASET_PATH="$PATH_CACHE/rl_dataset"
 
 rl_salamandra_convert_dataset \
     --input_path \
@@ -108,7 +123,7 @@ rl_script_args=(
 {{RL_SCRIPT_ARGS}}
 )
 rl_config_args=(
-    # RL configs are subclasses of transformers.TrainingArguments
+# RL configs are subclasses of transformers.TrainingArguments
 {{RL_CONFIG_ARGS}}
 )
 model_config_args=(
@@ -128,8 +143,8 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 torchrun "${torchrun_distributed_args[@]}" \
     {{RL_SCRIPT_PATH}} \
     --deepspeed $deepspeed_path_to_config \
-    "${dpo_script_args[@]}" \
-    "${dpo_config_args[@]}" \
+    "${rl_script_args[@]}" \
+    "${rl_config_args[@]}" \
     "${model_config_args[@]}" 
 
 # clean up
