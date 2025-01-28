@@ -26,20 +26,12 @@ find_unused_port() {
             return 0
         fi
     done
-
+}
 
 export GPUS_PER_NODE=4 # Architecture of MN5
 export NNODES=$SLURM_NNODES
 export WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 export MASTER_PORT=$(find_unused_port)
-export MASTER_ADDR=$SLURM_LAUNCH_NODE_IPADDR
-
-# Inspecting:
-echo xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-echo master addr: ${MASTER_ADDR}
-echo master port: ${MASTER_PORT}
-echo num nodes: ${NNODES}
-echo xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 
 # =======================================
