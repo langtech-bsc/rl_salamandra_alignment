@@ -3,9 +3,8 @@
 # Description
 # =======================================
 # 
-# Trainer script for DPO on MN5  (using the TRL python package from HF). 
+# Trainer script for RL on MN5  (using the TRL python package from HF).
 # Works on multinode and multigpu.
-# Heavily adapted script for instruction tuning ()"run_train_salamandra40b.sh")
 #
 # =======================================
 # Table of Contents
@@ -22,20 +21,14 @@
 # 1. Initialization
 # =======================================
 
+{{ENVIRONMENT_VARIABLES}}
+
 # Activate TRL environment
-export ROOT_DIR="/gpfs/projects/bsc88/text/models/rlhf/alignment"
-source $ROOT_DIR/use_venv.sh
-export REPO_DIR="/gpfs/projects/bsc88/text/models/rlhf/trl/02_alignment_repo_luis"
-
-# Main arguments for DPO: model, dpo dataset, output dir
-export MODEL="/gpfs/projects/bsc88/text/models/instruction-tuning/models/checkpoints/salamandra40b_v0.1"
-
-#export DPO_DATASET_PATH="/gpfs/projects/bsc88/data/01-alignment-raw-data/dpo_aya__sanity_check_dataset"
-#export OUTPUT_DIRNAME="05_40b_quick_dpo" 
-export DPO_DATASET_PATH="/gpfs/projects/bsc88/data/01-alignment-raw-data/hh_rlhf"
-export OUTPUT_DIRNAME="05_40b_hh_rlhf_dpo"
-export OUTPUT_DIR="$ROOT_DIR/outputs/$OUTPUT_DIRNAME" 
+source $VENV_DIR/bin/activate
+echo "Output directory:"
 echo $OUTPUT_DIR
+echo "Dataset:"
+echo $RL_DATASET_PATH
 
 # =======================================
 # 2. Setting up cache and wandb
@@ -53,12 +46,12 @@ rm -rf $PATH_CACHE
 
 # WANDB:
 timestamp=$(date +"%Y%m%d-%H.%M.%S")
-prefix="salamandra40_dpo_"$SLURM_JOB_ID"_"$timestamp
-export WANDB_PROJECT="salamandra_alignment"
-export WANDB_NAME=$prefix
+
+export WANDB_PROJECT="{{WANDB_PROJECT}}"
+export WANDB_NAME="{{WANDB_NAME}}"$SLURM_JOB_ID"_"$timestamp
 export WANDB_MODE=offline
 export WANDB_INIT_TIMEOUT=600
-export WANDB_DIR="/gpfs/projects/bsc88/text/models/rlhf/trl/wandb_logs"
+export WANDB_DIR="{{WANDB_DIR}}"
 mkdir -p $WANDB_DIR
 export WANDB_CONFIG_DIR=$WANDB_DIR/config
 
@@ -68,7 +61,7 @@ export WANDB_CONFIG_DIR=$WANDB_DIR/config
 
 
 # Deepspeed config file
-export deepspeed_path_to_config="$REPO_DIR/configs/ds_type3_config.json"
+export deepspeed_path_to_config="{{DS_CONFIG_PATH}}"
 
 # avoid parallel tokenization: apparently is not compatible with multi-node python
 # https://stackoverflow.com/questions/62691279/how-to-disable-tokenizers-parallelism-true-false-warning
@@ -99,54 +92,27 @@ torchrun_distributed_args=(
 # =======================================
 
 # Convert dataset
-OLD_DPO_DATASET_PATH=$DPO_DATASET_PATH
-export DPO_DATASET_PATH="$PATH_CACHE/dpo_dataset"
-python \
-    /gpfs/projects/bsc88/text/models/rlhf/trl/05_40b_dpo/convert_dataset.py \
+OLD_RL_DATASET_PATH=$RL_DATASET_PATH
+export RL_DATASET_PATH="$PATH_CACHE/dpo_dataset"
+
+rl_salamandra_convert_dataset \
     --input_path \
-    $OLD_DPO_DATASET_PATH \
+    $OLD_RL_DATASET_PATH \
     --output_path \
-    $DPO_DATASET_PATH
+    $RL_DATASET_PATH
 
 
 # Arguments for python script
-dpo_script_args=(
-    # dataset for DPO
-    --dataset_name $DPO_DATASET_PATH
+rl_script_args=(
+
+{{RL_SCRIPT_ARGS}}
 )
-dpo_config_args=(
-    # DPO config is a subclass of transformers.TrainingArguments
-
-    --beta 0.2 # DPO's beta hyperparameter for KL-divergence (Loss=reward+Beta*KL)
-    --max_length 8192 #We need to get this to 8192
-    --max_prompt_length 128 # Default. When especificed,you use the default data collator`
-    --remove_unused_columns False 
-    --dataset_num_proc 1 # Number of processes to use for processing the dataset.
-    
-    # from TrainingArguments 
-    --learning_rate 5.0e-6 
-    --num_train_epochs 2 
-    --bf16 True
-    --logging_dir $OUTPUT_DIR/logs
-    --local_rank $SLURM_LOCALID
-    --eval_strategy steps
-    --eval_steps 0.05
-
-    # These arguments help to manage GPU memory
-    --per_device_train_batch_size 2 
-    --per_device_eval_batch_size 2
-    --gradient_accumulation_steps 8 
-    --gradient_checkpointing True
-    
-    # wandb
-    --report_to "wandb" 
-
+rl_config_args=(
+    # RL configs are subclasses of transformers.TrainingArguments
+{{RL_CONFIG_ARGS}}
 )
 model_config_args=(
-    --model_name_or_path $MODEL
-    --output_dir $OUTPUT_DIR 
-    --attn_implementation flash_attention_2
-    --torch_dtype bfloat16
+{{MODEL_CONFIG_ARGS}}
 )
 
 
@@ -160,7 +126,7 @@ model_config_args=(
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 torchrun "${torchrun_distributed_args[@]}" \
-    /gpfs/projects/bsc88/text/models/rlhf/trl/02_alignment_repo_luis/scripts/python/dpo.py \
+    {{RL_SCRIPT_PATH}} \
     --deepspeed $deepspeed_path_to_config \
     "${dpo_script_args[@]}" \
     "${dpo_config_args[@]}" \
