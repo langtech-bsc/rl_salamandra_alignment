@@ -4,7 +4,7 @@ import json
 from copy import deepcopy
 
 
-def dict_sort(dict_list:list) -> list:
+def dict_sort(dict_list: list) -> list:
     """Sorts a list of dictionaries by their string versions
 
     Args:
@@ -14,9 +14,9 @@ def dict_sort(dict_list:list) -> list:
         list: sorted list of dictionaries
     """
     return sorted(dict_list, key=lambda d: json.dumps(d))
-    
 
-def unfold_dict(input_dict:dict) -> list:
+
+def unfold_dict(input_dict: dict) -> list:
     """
     Recursively unfolds a dictionary into multiple dictionaries if values are lists.
     For nested dictionaries, the unfolding continues recursively.
@@ -60,5 +60,6 @@ def unfold_dict(input_dict:dict) -> list:
         else:
             for partial_dict in result:
                 partial_dict[key] = value
+    result = [deepcopy(d) for d in result]
 
     return dict_sort(result)
