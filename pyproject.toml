@@ -41,6 +41,7 @@ homepage = "https://github.com/langtech-bsc/rl_salamandra_alignment"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+include-package-data = true
 
 [tool.setuptools.package-data]
 "*" = ["*.*"]
