@@ -69,7 +69,7 @@ def unfold_dict(input_dict: dict) -> list:
 
 def try_load_config(config_file: str) -> dict:
     """
-    Load a YAML configuration file.
+    Load a YAML configuration file as a dictionary.
 
     Parameters:
     config_file (str): Path to the configuration file.
