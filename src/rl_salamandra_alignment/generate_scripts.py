@@ -7,34 +7,11 @@ from rl_salamandra_alignment.distributed_configs import get_distributed_config_p
 from rl_salamandra_alignment.trl_scripts import get_script_path
 from rl_salamandra_alignment import templates
 from rl_salamandra_alignment import logger
-from rl_salamandra_alignment.utils.general import unfold_dict
+from rl_salamandra_alignment.utils.general import (
+    unfold_dict
+)
 
 
-def try_load_config(config_file: str) -> dict:
-    """
-    Load a YAML configuration file.
-
-    Parameters:
-    config_file (str): Path to the configuration file.
-
-    Returns:
-    dict: Configuration dictionary.
-    """
-    try:
-        with open(config_file, 'r') as file:
-            config = yaml.safe_load(file)
-
-    except FileNotFoundError:
-        logger.warning(f"Configuration file {config_file} not found.")
-        config = {}
-    except yaml.YAMLError as exc:
-        logger.warning(f"Error in configuration file: {exc}")
-        config = {}
-    logger.info("Using the following configuration:")
-    logger.info(
-        json.dumps(config, indent=2)
-    )
-    return config
 
 
 def generate_slurm_preamble(sbatch_args: dict) -> str:
@@ -78,9 +55,22 @@ def replace_in_template(
 
 
 def get_output_dir(config: dict) -> str:
+    """Extract the field 'output directory' from a config dict, making sure it is a string
+
+    Args:
+        config (dict): execution config dict for experiment
+
+    Raises:
+        ValueError: Raised if the value is not a string (e.g. a list).
+
+    Returns:
+        str: Path to the output directory
+    """
+
     try:
         output_dir = config["execution"]["output_dir"]
         if not isinstance(output_dir, str):
+            logger.warning(f"Found 'output_dir of type {type(output_dir)}")
             raise ValueError("'output_dir' must be a string")
         return output_dir
     except:
@@ -89,6 +79,12 @@ def get_output_dir(config: dict) -> str:
 
 
 def setup_macro_output_dir_tree(output_dir: str) -> None:
+    """Construct the directory tree for running an experiment.
+
+    Args:
+        output_dir (str): root directory for the outputs of the experiment.
+    """
+
     os.makedirs(output_dir, exist_ok=True)
 
     subdirs = [
@@ -104,7 +100,16 @@ def setup_macro_output_dir_tree(output_dir: str) -> None:
     return
 
 
-def _internal_dir_paths(output_dir: str, id: str):
+def _internal_dir_paths(output_dir: str, id: str) -> dict:
+    """Generate paths to directories used for the outputs of a subexperiment.
+
+    Args:
+        output_dir (str): root directory for the outputs of the experiment.
+        id (str): Sub-experiment id
+
+    Returns:
+        dict: Dictionary with the paths to the directories for the subexperiment
+    """
     d = {
         k: os.path.join(output_dir, k, id)
         for k in ["wandb", "cache", "training"]
@@ -113,6 +118,15 @@ def _internal_dir_paths(output_dir: str, id: str):
 
 
 def _internal_file_paths(output_dir: str, id: str):
+    """Generate paths to directories used for the outputs of a subexperiment.
+
+    Args:
+        output_dir (str): root directory for the outputs of the experiment.
+        id (str): Sub-experiment id
+
+    Returns:
+        dict: Dictionary with the paths to the files for the subexperiment
+    """
     d = {
         "slrum_script_distrubuted_run": os.path.join(output_dir, "slurm_scripts", f"distributed_run_{id}.job"),
         "slurm_script_launch": os.path.join(output_dir, "slurm_scripts", f'launch_{id}.sh'),
@@ -128,6 +142,13 @@ def setup_micro_output_dir_tree(
     config: dict,
     id: str
 ) -> None:
+    """Construct the directory tree for running a subexperiment.
+
+    Args:
+        output_dir (str): root directory for the outputs of the experiment.
+        config (dict): execution config dict for subexperiment
+        id (str): Sub-experiment id
+    """
 
     # slurm scripts -> handled by 'generate_*_script' functions
     # slurm logs -> handled by 'generate_*_script' functions
@@ -158,6 +179,16 @@ def generate_distributed_run_script(
         config: dict,
         id: str,
 ) -> str:
+    """Write the script for distributed execution of a subexperiment, by filling out the script template.
+
+    Args:
+        output_dir (str): root directory for the outputs of the experiment.
+        config (dict): execution config dict for subexperiment
+        id (str): Sub-experiment id
+
+    Returns:
+        str: Text of the script for distributed execution
+    """
 
     filled_template = templates.get_distributed_run_template()
     internal_file_paths = _internal_file_paths(output_dir, id)
@@ -192,6 +223,14 @@ def generate_distributed_run_script(
 
 
 def get_script_args_string(script_args_dict: dict) -> str:
+    """Convert a python dictionary into a bash dictionary
+
+    Args:
+        script_args_dict (dict): python dictionary to convert
+
+    Returns:
+        str: bash dictionary
+    """
     script_args_string = [
         f"\t--{k} {v}"
         for k, v in script_args_dict.items()
@@ -201,9 +240,19 @@ def get_script_args_string(script_args_dict: dict) -> str:
 
 def generate_launch_script(
         output_dir: str,
-        config: str,
+        config: dict,
         id: str
 ) -> str:
+    """Write the script for launching a subexperiment, by filling out the script template.
+
+    Args:
+        output_dir (str): root directory for the outputs of the experiment.
+        config (dict): execution config dict for subexperiment
+        id (str): Sub-experiment id
+
+    Returns:
+        str: Text of the script for launching the subexperiment
+    """
 
     filled_template = templates.get_launch_script_template()
     internal_file_paths = _internal_file_paths(output_dir, id)
@@ -240,8 +289,10 @@ def generate_launch_script(
     # RL Dataset
     # ============
     rl_dataset_path = config["rl_script_args"]["dataset_name"]
-    print(">>>>", rl_dataset_path)
-    # This line avoids
+    
+    # The following line is to avoid using the original path to the RL dataset.
+    # Remember that the RL dataset is converted to a format that can be locally run in MN5, 
+    # and this conversion happens before launching the fine-tuning
     config["rl_script_args"]["dataset_name"] = "$RL_DATASET_PATH"
 
     filled_template = replace_in_template(
@@ -329,7 +380,18 @@ def generate_launch_script(
 
 
 def generate_one_job(output_dir: str, config: dict, id: str) -> tuple:
+    """Generate the slurm scripts for a subexperiment
 
+    Args:
+        output_dir (str): root directory for the outputs of the experiment.
+        config (dict): execution config dict for subexperiment
+        id (str): Sub-experiment id
+
+    Returns:
+        tuple: paths to the distributed execution script and the launching script
+    """
+    
+    # Generate the content of the scripts
     launch_script_string = generate_launch_script(output_dir, config, id)
 
     distributed_run_script_string = generate_distributed_run_script(
@@ -338,6 +400,7 @@ def generate_one_job(output_dir: str, config: dict, id: str) -> tuple:
         id,
     )
 
+    # Save the content to file
     internal_file_paths = _internal_file_paths(output_dir, id)
 
     with open(
@@ -357,18 +420,33 @@ def generate_one_job(output_dir: str, config: dict, id: str) -> tuple:
 
 
 def generate_all_job_files(config: dict) -> list[tuple]:
+    """Generate the slurm scripts for an experiment
+
+    Args:
+        config (dict): execution config dict for experiment
+
+    Returns:
+        list[tuple]: for each subexperiment, paths to the distributed execution script and the launching script
+    """
 
     output_dir = get_output_dir(config)
+    
+    # build the tree structure
     setup_macro_output_dir_tree(output_dir)
 
+    # Generate the configs for all the subexperiments
     unfolded_configs = unfold_dict(config)
+    
+    # Give an ID to each subexperiment config
     unfolded_configs_with_id = [
         (str(id).zfill(2), cfg)
         for id, cfg in enumerate(unfolded_configs)
     ]
+    # build the tree structure for each subexperiment
     for id, cfg in unfolded_configs_with_id:
         setup_micro_output_dir_tree(output_dir, cfg, id)
 
+    # Generate all scripts
     return [
         generate_one_job(output_dir, cfg, id)
         for id, cfg in unfolded_configs_with_id
