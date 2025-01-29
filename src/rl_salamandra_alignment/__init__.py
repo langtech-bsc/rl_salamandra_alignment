@@ -7,7 +7,8 @@ __version__ = '0.1.0'
 import logging
 
 # Create a logger for this package
-logger = logging.getLogger("RL_salamandra_alignment")  # Root logger for the package
+# Root logger for the package
+logger = logging.getLogger("RL_salamandra_alignment")
 logger.setLevel(logging.INFO)
 
 # Add a NullHandler to prevent "No handlers could be found" warnings
@@ -27,6 +28,3 @@ def setup_logging(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelna
     logger.setLevel(level)
     if not logger.hasHandlers():
         logger.addHandler(handler)
-
-
-from .rl_salamandra_alignment import my_test
