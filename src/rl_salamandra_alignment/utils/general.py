@@ -2,6 +2,8 @@ from itertools import product
 import os
 import json
 from copy import deepcopy
+from rl_salamandra_alignment import logger
+import yaml
 
 
 def dict_sort(dict_list: list) -> list:
@@ -63,3 +65,31 @@ def unfold_dict(input_dict: dict) -> list:
     result = [deepcopy(d) for d in result]
 
     return dict_sort(result)
+
+
+def try_load_config(config_file: str) -> dict:
+    """
+    Load a YAML configuration file.
+
+    Parameters:
+    config_file (str): Path to the configuration file.
+
+    Returns:
+    dict: Configuration dictionary.
+    """
+    try:
+        with open(config_file, 'r') as file:
+            config = yaml.safe_load(file)
+
+    except FileNotFoundError:
+        logger.warning(f"Configuration file {config_file} not found.")
+        config = {}
+    except yaml.YAMLError as exc:
+        logger.warning(f"Error in configuration file: {exc}")
+        config = {}
+    logger.info("Using the following configuration:")
+    logger.info(
+        json.dumps(config, indent=2)
+    )
+    return config
+
