@@ -1,8 +1,8 @@
 """Console script for rl_salamandra_alignment."""
 import rl_salamandra_alignment
 from argparse import ArgumentParser
-from rl_salamandra_alignment.fill_template import generate_all_job_files, try_load_config
-
+from rl_salamandra_alignment.generate_scripts import generate_all_job_files
+from rl_salamandra_alignment.utils.general import try_load_config
 
 def main():
     """Reinforcement Learning for Salamandra on MN5"""
