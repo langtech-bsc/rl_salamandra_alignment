@@ -130,8 +130,8 @@ def _internal_file_paths(output_dir: str, id: str):
     d = {
         "slrum_script_distrubuted_run": os.path.join(output_dir, "slurm_scripts", f"distributed_run_{id}.job"),
         "slurm_script_launch": os.path.join(output_dir, "slurm_scripts", f'launch_{id}.sh'),
-        "slurm_output": os.path.join(output_dir, "slurm_logs", f"{id}_output.log"),
-        "slurm_error": os.path.join(output_dir, "slurm_logs", f"{id}_error.log"),
+        "slurm_output": os.path.join(output_dir, "slurm_logs", id ,f"%j_%x_output.log"),
+        "slurm_error": os.path.join(output_dir, "slurm_logs", id, f"%j_%x_error.log"),
         "config": os.path.join(output_dir, "configs", f"config_{id}.json")
     }
     return d
@@ -343,6 +343,9 @@ def generate_launch_script(
 
     # This is very important for distributed distribution
     rl_config_args["local_rank"] = "$SLURM_LOCALID"
+
+    # Name for WanDB syncing
+    rl_config_args["run_name"] = "$WANDB_NAME"
 
     filled_template = replace_in_template(
         filled_template,
