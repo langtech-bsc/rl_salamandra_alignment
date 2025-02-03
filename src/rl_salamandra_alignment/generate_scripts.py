@@ -24,6 +24,11 @@ def generate_slurm_preamble(sbatch_args: dict) -> str:
         str: Preamble with all #SBATCHs filled
     """
     slurm_preamble = ""
+    
+    # Always ask for 4 gpus
+    sbatch_args["gres"] = "gpu:4"
+    sbatch_args["cpus-per-task"] = 80
+    
     # Fill "#SBATCH" arguments
     for arg_name, arg_value in sbatch_args.items():
         slurm_preamble += f"#SBATCH --{arg_name}={arg_value}\n"
