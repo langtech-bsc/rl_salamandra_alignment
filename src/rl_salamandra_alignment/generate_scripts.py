@@ -24,6 +24,11 @@ def generate_slurm_preamble(sbatch_args: dict) -> str:
         str: Preamble with all #SBATCHs filled
     """
     slurm_preamble = ""
+    
+    # Always ask for 4 gpus
+    sbatch_args["gres"] = "gpu:4"
+    sbatch_args["cpus-per-task"] = 80
+    
     # Fill "#SBATCH" arguments
     for arg_name, arg_value in sbatch_args.items():
         slurm_preamble += f"#SBATCH --{arg_name}={arg_value}\n"
@@ -128,10 +133,14 @@ def _internal_file_paths(output_dir: str, id: str):
         dict: Dictionary with the paths to the files for the subexperiment
     """
     d = {
-        "slrum_script_distrubuted_run": os.path.join(output_dir, "slurm_scripts", f"distributed_run_{id}.job"),
+        "slrum_training_distributed_run": os.path.join(output_dir, "slurm_scripts", f"distributed_run_{id}.job"),
         "slurm_script_launch": os.path.join(output_dir, "slurm_scripts", f'launch_{id}.sh'),
-        "slurm_output": os.path.join(output_dir, "slurm_logs", id ,f"%j_%x_output.log"),
-        "slurm_error": os.path.join(output_dir, "slurm_logs", id, f"%j_%x_error.log"),
+        "slurm_training_output": os.path.join(output_dir, "slurm_logs", id ,f"%j_%x_training.log"),
+        "slurm_training_error": os.path.join(output_dir, "slurm_logs", id, f"%j_%x_training.err"),
+        "slurm_eval_harness_output": os.path.join(output_dir, "slurm_logs", id ,f"%j_%x_eval_harness.log"),
+        "slurm_eval_harness_error": os.path.join(output_dir, "slurm_logs", id, f"%j_%x_eval_harness.err"),
+        "slurm_eval_local_output": os.path.join(output_dir, "slurm_logs", id ,f"%j_%x_eval_local.log"),
+        "slurm_eval_local_error": os.path.join(output_dir, "slurm_logs", id, f"%j_%x_eval_local.err"),
         "config": os.path.join(output_dir, "configs", f"config_{id}.json")
     }
     return d
@@ -212,7 +221,7 @@ def generate_distributed_run_script(
     )
 
     # fill the Launch script
-    launch_script_path = internal_file_paths["slurm_script_launch"]
+    launch_script_path = internal_file_paths["slurm_training_launch"]
     filled_template = replace_in_template(
         filled_template,
         "LAUNCH_SCRIPT",
@@ -382,8 +391,8 @@ def generate_launch_script(
     return filled_template
 
 
-def generate_one_job(output_dir: str, config: dict, id: str) -> tuple:
-    """Generate the slurm scripts for a subexperiment
+def generate_one_training_job(output_dir: str, config: dict, id: str) -> dict:
+    """Generate the TRAINING slurm scripts for a subexperiment
 
     Args:
         output_dir (str): root directory for the outputs of the experiment.
@@ -391,7 +400,7 @@ def generate_one_job(output_dir: str, config: dict, id: str) -> tuple:
         id (str): Sub-experiment id
 
     Returns:
-        tuple: paths to the distributed execution script and the launching script
+        dict: paths to the distributed execution script and the launching script
     """
     
     # Generate the content of the scripts
@@ -407,7 +416,7 @@ def generate_one_job(output_dir: str, config: dict, id: str) -> tuple:
     internal_file_paths = _internal_file_paths(output_dir, id)
 
     with open(
-        internal_file_paths["slrum_script_distrubuted_run"], "w"
+        internal_file_paths["slrum_training_distributed_run"], "w"
     ) as f:
         f.write(distributed_run_script_string)
 
@@ -416,10 +425,47 @@ def generate_one_job(output_dir: str, config: dict, id: str) -> tuple:
     ) as f:
         f.write(launch_script_string)
 
-    return (
-        internal_file_paths["slrum_script_distrubuted_run"],
-        internal_file_paths["slurm_script_launch"]
-    )
+    return {
+        "slrum_training_distributed_run": internal_file_paths["slrum_training_distributed_run"],
+        "slurm_script_launch" : internal_file_paths["slurm_script_launch"]
+    }
+
+def generate_eval_scripts_for_one_training(output_dir: str, config: dict, id: str) -> dict:
+    """Generate the EVALUATION slurm scripts for a subexperiment
+
+    Args:
+        output_dir (str): root directory for the outputs of the experiment.
+        config (dict): execution config dict for subexperiment
+        id (str): Sub-experiment id
+
+    Returns:
+        dict: paths to the evaluation scripts
+    """
+    return {}
+
+def generate_one_job_set(output_dir: str, config: dict, id: str) -> tuple:
+    """Generate the slurm scripts for a subexperiment (both training and evaluation)
+
+    Args:
+        output_dir (str): root directory for the outputs of the experiment.
+        config (dict): execution config dict for subexperiment
+        id (str): Sub-experiment id
+
+    Returns:
+        dict: paths to the scripts for training and evaluation
+    """
+    
+    job_set_paths = {}
+    
+    # First generate training job scripts
+    training_scripts = generate_one_training_job(output_dir, config, id)
+    job_set_paths.update(training_scripts)
+    
+    # Then generate evaluation job scripts
+    evaluation_scripts = generate_eval_scripts_for_one_training(output_dir, config, id)
+    job_set_paths.update(evaluation_scripts)
+    
+    return job_set_paths
 
 
 def generate_all_job_files(config: dict) -> list[tuple]:
@@ -451,6 +497,6 @@ def generate_all_job_files(config: dict) -> list[tuple]:
 
     # Generate all scripts
     return [
-        generate_one_job(output_dir, cfg, id)
+        generate_one_job_set(output_dir, cfg, id)
         for id, cfg in unfolded_configs_with_id
     ]
