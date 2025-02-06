@@ -32,6 +32,8 @@ def unfold_dict(input_dict: dict) -> list:
     # Base case: if the dictionary is empty, return a single empty dictionary
     if not input_dict:
         return [{}]
+    # Do not unfold "evaluation"
+    evaluation_config = input_dict.pop("evaluation", None)
 
     # Resultant list to store the unfolded dictionaries
     result = [{}]
@@ -64,6 +66,11 @@ def unfold_dict(input_dict: dict) -> list:
                 partial_dict[key] = value
     result = [deepcopy(d) for d in result]
 
+    # Make sure all configs share the same evaluation config.
+    if evaluation_config:
+        for d in result:
+            d["evaluation"] = deepcopy(evaluation_config)
+    
     return dict_sort(result)
 
 
