@@ -98,7 +98,8 @@ def setup_macro_output_dir_tree(output_dir: str) -> None:
         "wandb",
         "cache",
         "training",
-        "configs"
+        "configs",
+        "evaluation"
     ]
     for subdir in subdirs:
         os.makedirs(os.path.join(output_dir, subdir), exist_ok=True)
@@ -117,7 +118,7 @@ def _internal_dir_paths(output_dir: str, id: str) -> dict:
     """
     d = {
         k: os.path.join(output_dir, k, id)
-        for k in ["wandb", "cache", "training"]
+        for k in ["wandb", "cache", "training", "evaluation"]
     }
     return d
 
@@ -173,6 +174,10 @@ def setup_micro_output_dir_tree(
     # training
     os.makedirs(
         internal_dir_paths["training"], exist_ok=True
+    )
+    # evaluation
+    os.makedirs(
+        internal_dir_paths["evaluation"], exist_ok=True
     )
     # configs
     internal_file_paths = _internal_file_paths(output_dir, id)
