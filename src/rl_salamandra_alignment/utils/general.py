@@ -94,8 +94,8 @@ def try_load_config(config_file: str) -> dict:
     except yaml.YAMLError as exc:
         logger.warning(f"Error in configuration file: {exc}")
         config = {}
-    logger.info("Using the following configuration:")
-    logger.info(
+    logger.debug("Using the following configuration:")
+    logger.debug(
         json.dumps(config, indent=2)
     )
     return config
