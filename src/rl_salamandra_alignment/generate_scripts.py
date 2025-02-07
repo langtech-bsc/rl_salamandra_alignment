@@ -10,8 +10,7 @@ from rl_salamandra_alignment import logger
 from rl_salamandra_alignment.utils.general import (
     unfold_dict
 )
-
-
+from rl_salamandra_alignment import logger
 
 
 def generate_slurm_preamble(sbatch_args: dict) -> str:
@@ -24,11 +23,11 @@ def generate_slurm_preamble(sbatch_args: dict) -> str:
         str: Preamble with all #SBATCHs filled
     """
     slurm_preamble = ""
-    
+
     # Always ask for 4 gpus
     sbatch_args["gres"] = "gpu:4"
     sbatch_args["cpus-per-task"] = 80
-    
+
     # Fill "#SBATCH" arguments
     for arg_name, arg_value in sbatch_args.items():
         slurm_preamble += f"#SBATCH --{arg_name}={arg_value}\n"
@@ -89,7 +88,6 @@ def setup_macro_output_dir_tree(output_dir: str) -> None:
     Args:
         output_dir (str): root directory for the outputs of the experiment.
     """
-
     os.makedirs(output_dir, exist_ok=True)
 
     subdirs = [
@@ -135,12 +133,14 @@ def _internal_file_paths(output_dir: str, id: str):
     """
     d = {
         "slrum_training_distributed_run": os.path.join(output_dir, "slurm_scripts", f"distributed_run_{id}.job"),
-        "slurm_script_launch": os.path.join(output_dir, "slurm_scripts", f'launch_{id}.sh'),
-        "slurm_training_output": os.path.join(output_dir, "slurm_logs", id ,f"%j_%x_training.log"),
+        "slurm_training_launch": os.path.join(output_dir, "slurm_scripts", f'launch_{id}.sh'),
+        "slurm_training_output": os.path.join(output_dir, "slurm_logs", id, f"%j_%x_training.log"),
         "slurm_training_error": os.path.join(output_dir, "slurm_logs", id, f"%j_%x_training.err"),
-        "slurm_eval_harness_output": os.path.join(output_dir, "slurm_logs", id ,f"%j_%x_eval_harness.log"),
+        "slurm_eval_harness_job": os.path.join(output_dir, "slurm_scripts", f"eval_harness_{id}.job"),
+        "slurm_eval_harness_output": os.path.join(output_dir, "slurm_logs", id, f"%j_%x_eval_harness.log"),
         "slurm_eval_harness_error": os.path.join(output_dir, "slurm_logs", id, f"%j_%x_eval_harness.err"),
-        "slurm_eval_local_output": os.path.join(output_dir, "slurm_logs", id ,f"%j_%x_eval_local.log"),
+        "slurm_eval_local_job": os.path.join(output_dir, "slurm_scripts", f"eval_local_{id}.job"),
+        "slurm_eval_local_output": os.path.join(output_dir, "slurm_logs", id, f"%j_%x_eval_local.log"),
         "slurm_eval_local_error": os.path.join(output_dir, "slurm_logs", id, f"%j_%x_eval_local.err"),
         "config": os.path.join(output_dir, "configs", f"config_{id}.json")
     }
@@ -214,9 +214,9 @@ def generate_distributed_run_script(
     # Automatically determine log file
     slurm_config = deepcopy(config["slurm"])
     output_dir = get_output_dir(config)
-    slurm_config["job-name"] = id + "_" + slurm_config["job-name"]
-    slurm_config["output"] = internal_file_paths["slurm_output"]
-    slurm_config["error"] = internal_file_paths["slurm_error"]
+    slurm_config["job-name"] = f"{id}_train_" + slurm_config["job-name"]
+    slurm_config["output"] = internal_file_paths["slurm_training_output"]
+    slurm_config["error"] = internal_file_paths["slurm_training_error"]
 
     slurm_preamble = generate_slurm_preamble(slurm_config)
     filled_template = replace_in_template(
@@ -303,9 +303,9 @@ def generate_launch_script(
     # RL Dataset
     # ============
     rl_dataset_path = config["rl_script_args"]["dataset_name"]
-    
+
     # The following line is to avoid using the original path to the RL dataset.
-    # Remember that the RL dataset is converted to a format that can be locally run in MN5, 
+    # Remember that the RL dataset is converted to a format that can be locally run in MN5,
     # and this conversion happens before launching the fine-tuning
     config["rl_script_args"]["dataset_name"] = "$RL_DATASET_PATH"
 
@@ -407,7 +407,7 @@ def generate_one_training_job(output_dir: str, config: dict, id: str) -> dict:
     Returns:
         dict: paths to the distributed execution script and the launching script
     """
-    
+
     # Generate the content of the scripts
     launch_script_string = generate_launch_script(output_dir, config, id)
 
@@ -426,14 +426,136 @@ def generate_one_training_job(output_dir: str, config: dict, id: str) -> dict:
         f.write(distributed_run_script_string)
 
     with open(
-        internal_file_paths["slurm_script_launch"], "w"
+        internal_file_paths["slurm_training_launch"], "w"
     ) as f:
         f.write(launch_script_string)
 
     return {
         "slrum_training_distributed_run": internal_file_paths["slrum_training_distributed_run"],
-        "slurm_script_launch" : internal_file_paths["slurm_script_launch"]
+        "slurm_training_launch": internal_file_paths["slurm_training_launch"]
     }
+
+
+def generate_local_eval_script(output_dir: str, config: dict, id: str) -> dict:
+    """Generate the LOCAL evaluation slurm scripts for a subexperiment
+    (for example, red teaming)
+
+    Args:
+        output_dir (str): root directory for the outputs of the experiment.
+        config (dict): execution config dict for subexperiment
+        id (str): Sub-experiment id
+
+    Returns:
+        dict: paths to the local evaluation scripts
+    """
+    # TODO
+    return ""
+
+
+def generate_harness_eval_script(output_dir: str, config: dict, id: str) -> dict:
+    """Generate the HARNESS evaluation slurm scripts for a subexperiment
+
+    Args:
+        output_dir (str): root directory for the outputs of the experiment.
+        config (dict): execution config dict for subexperiment
+        id (str): Sub-experiment id
+
+    Returns:
+        dict: paths to the harness evaluation scripts
+    """
+    filled_template = templates.get_harness_template()
+    internal_file_paths = _internal_file_paths(output_dir, id)
+    internal_dir_paths = _internal_dir_paths(output_dir, id)
+
+    # ============
+    # Slurm preamble
+    # ============
+
+    # Keep the same job name for eval and training (different prefixes)
+    job_name = config["slurm"]["job-name"]
+
+    # First look for specific slurm requirements for harness eval,
+    # if not found, use the same slurm requirements from training.
+
+    if "harness_slurm" in config.get("evaluation", ()):
+        slurm_config = deepcopy(config["evaluation"]["harness_slurm"])
+    else:
+        logger.warning(
+            f"Did not find custom SLURM requirements for Harness Evaluation.\n"
+            "You can specify them in your config, under 'evaluation'.'harness_slurm'\n"
+            "Defaulting to the same SLURM requirements used for training."
+        )
+        slurm_config = deepcopy(config["slurm"])
+
+    # Automatically determine log files and jobname
+    slurm_config["job-name"] = f"{id}_eval_harn_" + job_name
+    slurm_config["output"] = internal_file_paths["slurm_eval_harness_output"]
+    slurm_config["error"] = internal_file_paths["slurm_eval_harness_error"]
+
+    slurm_preamble = generate_slurm_preamble(slurm_config)
+    filled_template = replace_in_template(
+        filled_template,
+        "SBATCH_PARAMETERS",
+        slurm_preamble
+    )
+
+    # ============
+    # Model info
+    # ============
+    # Get the trained model
+    model_path = internal_dir_paths["training"]
+    model_name = config["model_config_args"]["model_name_or_path"]
+    model_name = f"{id}_{os.path.basename(model_name)}"
+
+    filled_template = replace_in_template(
+        filled_template,
+        "MODEL_PATH",
+        model_path
+    )
+    filled_template = replace_in_template(
+        filled_template,
+        "MODEL_NAME",
+        model_name
+    )
+
+    # ============
+    # Task list
+    # ============
+
+    task_list = config["evaluation"]["harness_tasks"]
+    task_list = ",".join(task_list)
+
+    filled_template = replace_in_template(
+        filled_template,
+        "TASK_LIST",
+        task_list
+    )
+
+    # ============
+    # Harness output_path
+    # ============
+    harness_output_path = os.path.join(
+        internal_dir_paths["evaluation"],
+        "harness"
+    )
+
+    filled_template = replace_in_template(
+        filled_template,
+        "HARNESS_EVAL_OUTPUT_PATH",
+        harness_output_path
+    )
+
+    # ============
+    # Cache path
+    # ============
+    filled_template = replace_in_template(
+        filled_template,
+        "CACHE_DIR",
+        internal_dir_paths["cache"]
+    )
+
+    return filled_template
+
 
 def generate_eval_scripts_for_one_training(output_dir: str, config: dict, id: str) -> dict:
     """Generate the EVALUATION slurm scripts for a subexperiment
@@ -446,7 +568,32 @@ def generate_eval_scripts_for_one_training(output_dir: str, config: dict, id: st
     Returns:
         dict: paths to the evaluation scripts
     """
-    return {}
+    # First generate harness evaluation script
+    harness_eval_script = generate_harness_eval_script(output_dir, config, id)
+
+    # Then generate local evaluation scripts
+    local_eval_script = generate_local_eval_script(output_dir, config, id)
+
+    # Save the content to file
+    internal_file_paths = _internal_file_paths(output_dir, id)
+
+    with open(
+        internal_file_paths["slurm_eval_harness_job"],
+        "w"
+    ) as f:
+        f.write(harness_eval_script)
+
+    with open(
+        internal_file_paths["slurm_eval_local_job"],
+        "w"
+    ) as f:
+        f.write(local_eval_script)
+
+    return {
+        "slurm_eval_harness_job": internal_file_paths["slurm_eval_harness_job"],
+        "slurm_eval_local_job": internal_file_paths["slurm_eval_local_job"]
+    }
+
 
 def generate_one_job_set(output_dir: str, config: dict, id: str) -> tuple:
     """Generate the slurm scripts for a subexperiment (both training and evaluation)
@@ -459,17 +606,19 @@ def generate_one_job_set(output_dir: str, config: dict, id: str) -> tuple:
     Returns:
         dict: paths to the scripts for training and evaluation
     """
-    
+
     job_set_paths = {}
-    
+
     # First generate training job scripts
     training_scripts = generate_one_training_job(output_dir, config, id)
     job_set_paths.update(training_scripts)
-    
+
     # Then generate evaluation job scripts
-    evaluation_scripts = generate_eval_scripts_for_one_training(output_dir, config, id)
-    job_set_paths.update(evaluation_scripts)
-    
+    if config.get("evaluation"):
+        evaluation_scripts = generate_eval_scripts_for_one_training(
+            output_dir, config, id)
+        job_set_paths.update(evaluation_scripts)
+
     return job_set_paths
 
 
@@ -484,13 +633,13 @@ def generate_all_job_files(config: dict) -> list[tuple]:
     """
 
     output_dir = get_output_dir(config)
-    
+
     # build the tree structure
     setup_macro_output_dir_tree(output_dir)
 
     # Generate the configs for all the subexperiments
     unfolded_configs = unfold_dict(config)
-    
+
     # Give an ID to each subexperiment config
     unfolded_configs_with_id = [
         (str(id).zfill(2), cfg)
