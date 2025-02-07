@@ -41,3 +41,23 @@ def get_launch_script_template()-> str:
 
     return script_template
 
+
+def get_harness_template() -> str:
+    """Get template for the script for executing the Evaluation harness
+
+    Returns:
+        str: template for the script for executing the Evaluation harness
+    """
+    rl_salamanda_alignment_package_path = str(
+        pkg_resources.files('rl_salamandra_alignment'))
+
+    script_path = os.path.join(
+        rl_salamanda_alignment_package_path,
+        "templates",
+        "evaluation_harness.sh"
+    )
+
+    with open(script_path, "r") as f:
+        script_template = f.read()
+
+    return script_template
