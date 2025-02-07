@@ -1,5 +1,4 @@
-"""Script to convert HF datasets to a format that can be run locally in MN5
-    """
+"""Script to convert HF datasets to a format that can be run locally in MN5"""
 from argparse import ArgumentParser
 from datasets import load_dataset, load_from_disk
 import os

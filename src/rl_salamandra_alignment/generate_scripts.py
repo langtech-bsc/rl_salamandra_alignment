@@ -1,3 +1,4 @@
+"""Tools for generating scripts by filling out templates"""
 import yaml
 import os
 import json
