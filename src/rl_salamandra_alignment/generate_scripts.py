@@ -4,6 +4,7 @@ import os
 import json
 from typing import Union
 from copy import deepcopy
+from datetime import datetime
 from rl_salamandra_alignment.distributed_configs import get_distributed_config_path
 from rl_salamandra_alignment.trl_scripts import get_script_path
 from rl_salamandra_alignment import templates
@@ -623,6 +624,27 @@ def generate_one_job_set(output_dir: str, config: dict, id: str) -> tuple:
     return job_set_paths
 
 
+def get_config_ids(config_list: list) -> list:
+    """Give an unique ID to each config.
+    Each ID corresponds to a subexperiment.
+
+    Args:
+        config_list (list): List of config dicts
+
+    Returns:
+        list: List of tuples (id, config)
+    """
+    unique_timestamp = datetime.now().strftime("%H_%M_%d_%m_%Y")
+    configs_with_id = []
+    
+    for i, config in enumerate(config_list):
+        id = f"{str(i).zfill(2)}__{unique_timestamp}"
+        configs_with_id.append(
+            (id, config)
+        )
+    
+    return configs_with_id
+
 def generate_all_job_files(config: dict) -> list[tuple]:
     """Generate the slurm scripts for an experiment
 
@@ -642,10 +664,8 @@ def generate_all_job_files(config: dict) -> list[tuple]:
     unfolded_configs = unfold_dict(config)
 
     # Give an ID to each subexperiment config
-    unfolded_configs_with_id = [
-        (str(id).zfill(2), cfg)
-        for id, cfg in enumerate(unfolded_configs)
-    ]
+    unfolded_configs_with_id = get_config_ids(unfolded_configs)
+    
     # build the tree structure for each subexperiment
     for id, cfg in unfolded_configs_with_id:
         setup_micro_output_dir_tree(output_dir, cfg, id)
