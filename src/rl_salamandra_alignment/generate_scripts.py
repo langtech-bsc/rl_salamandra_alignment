@@ -144,7 +144,7 @@ def _internal_file_paths(output_dir: str, id: str):
         "slurm_eval_local_job": os.path.join(output_dir, "slurm_scripts", f"eval_local_{id}.job"),
         "slurm_eval_local_output": os.path.join(output_dir, "slurm_logs", id, f"%j_%x_eval_local.log"),
         "slurm_eval_local_error": os.path.join(output_dir, "slurm_logs", id, f"%j_%x_eval_local.err"),
-        "config": os.path.join(output_dir, "configs", f"config_{id}.json")
+        "config": os.path.join(output_dir, "configs", f"config_{id}.yaml")
     }
     return d
 
@@ -185,9 +185,10 @@ def setup_micro_output_dir_tree(
     internal_file_paths = _internal_file_paths(output_dir, id)
     with open(
         internal_file_paths["config"],
-        "w"
+        "w",
+        encoding="utf-8"
     ) as f:
-        json.dump(config, f, indent=2)
+        yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
 
 
 def generate_distributed_run_script(
