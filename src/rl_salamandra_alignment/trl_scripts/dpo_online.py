@@ -86,6 +86,16 @@ if __name__ == "__main__":
         model_config.model_name_or_path, trust_remote_code=model_config.trust_remote_code, **model_kwargs
     )
 
+    if training_args.ref_model_path is not None:
+        # Provisionally, for the reference model, use the same loading config from the trained model
+        ref_model = AutoModelForCausalLM.from_pretrained(
+            training_args.ref_model_path, trust_remote_code=model_config.trust_remote_code, **model_kwargs
+        )
+        # There is an implicit assumption in the OnlineDPOTrainer code that both
+        # 'model' and 'ref_model' use the same processing class (tokenizer)
+    else:
+        ref_model = None
+
     if training_args.reward_model_path is not None:
         reward_model = AutoModelForSequenceClassification.from_pretrained(
             training_args.reward_model_path,
@@ -126,6 +136,7 @@ if __name__ == "__main__":
         model=model,
         reward_model=reward_model,
         judge=judge,
+        ref_model = ref_model,
         args=training_args,
         train_dataset=dataset[script_args.dataset_train_split],
         eval_dataset=dataset[script_args.dataset_test_split] if training_args.eval_strategy != "no" else None,
