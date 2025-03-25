@@ -161,7 +161,8 @@ def main_convert():
         Splitting parameters:
         Random seed: {RANDOM_SEED}
         Dev split size: {DEV_SPLIT_SIZE}
-        Test spplit size: {TEST_SPLIT_SIZE}  
+        Test spplit size: {TEST_SPLIT_SIZE}
+        If your dataset already contains splits train-test-eval, it will NOT be splitted again.
         """.replace("  ", "")
         )
     print(TEST_SPLIT_SIZE, DEV_SPLIT_SIZE, RANDOM_SEED)  
