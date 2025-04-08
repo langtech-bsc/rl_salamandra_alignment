@@ -88,9 +88,13 @@ if __name__ == "__main__":
         model_config.model_name_or_path, trust_remote_code=model_config.trust_remote_code, **model_kwargs
     )
     peft_config = get_peft_config(model_config)
+    if training_args.ref_model_path is None and isinstance(model_config.model_name_or_path, str):
+        # If the reference model is not specified, assume it is the same as the initial model
+        training_args.ref_model_path = model_config.model_name_or_path
     if peft_config is None:
+        # Provisionally, for the reference model, use the same loading config from the trained model
         ref_model = AutoModelForCausalLM.from_pretrained(
-            model_config.model_name_or_path, trust_remote_code=model_config.trust_remote_code, **model_kwargs
+            training_args.ref_model_path, trust_remote_code=model_config.trust_remote_code, **model_kwargs
         )
     else:
         ref_model = None
