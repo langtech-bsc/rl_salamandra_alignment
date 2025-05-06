@@ -32,6 +32,7 @@ echo "Output directory:"
 echo $TRAINING_OUTPUT_DIR
 echo "Dataset:"
 echo $RL_DATASET_PATH
+chmod --recursive 770 $TRAINING_OUTPUT_DIR # Make sure the group also has access
 
 export MASTER_ADDR=$SLURM_LAUNCH_NODE_IPADDR
 
@@ -100,7 +101,7 @@ torchrun_distributed_args=(
     #--master-port $MPORT
     #--node-rank $RANK
     #--rdzv-conf is_host=True
-    --log-dir $TRAINING_OUTPUT_DIR/torch_run_logs
+    --log-dir $PATH_CACHE/torch_run_logs
 )
 
 # =======================================
@@ -154,7 +155,7 @@ torchrun "${torchrun_distributed_args[@]}" \
     "${model_config_args[@]}" 
 
 # clean up
-chmod 770 $TRAINING_OUTPUT_DIR # Make sure the group also has access
+chmod --recursive 770 $TRAINING_OUTPUT_DIR # Make sure the group also has access
 rm -rf $PATH_CACHE
 printf "Done :)" 
 
