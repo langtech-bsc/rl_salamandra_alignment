@@ -56,6 +56,7 @@ export HF_DATASETS_CACHE=$PATH_CACHE
 export NUMBA_CACHE_DIR=$PATH_CACHE
 export WANDB_CACHE_DIR=$PATH_CACHE
 export TORCH_EXTENSIONS_DIR=$PATH_CACHE
+export TRITON_HOME=$PATH_CACHE
 rm -rf $PATH_CACHE
 
 # WANDB:
@@ -155,6 +156,7 @@ torchrun "${torchrun_distributed_args[@]}" \
     "${model_config_args[@]}" 
 
 # clean up
+printf "You may ignore 'FileNotFoundError' from triton."
 chmod --recursive 770 $TRAINING_OUTPUT_DIR # Make sure the group also has access
 rm -rf $PATH_CACHE
 printf "Done :)" 
