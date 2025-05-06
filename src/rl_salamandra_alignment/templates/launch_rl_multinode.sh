@@ -32,7 +32,6 @@ echo "Output directory:"
 echo $TRAINING_OUTPUT_DIR
 echo "Dataset:"
 echo $RL_DATASET_PATH
-chmod --recursive 770 $TRAINING_OUTPUT_DIR # Make sure the group also has access
 
 export MASTER_ADDR=$SLURM_LAUNCH_NODE_IPADDR
 
@@ -101,7 +100,7 @@ torchrun_distributed_args=(
     #--master-port $MPORT
     #--node-rank $RANK
     #--rdzv-conf is_host=True
-    --log-dir $PATH_CACHE/torch_run_logs
+    --log-dir $TRAINING_OUTPUT_DIR/torch_run_logs
 )
 
 # =======================================
@@ -137,25 +136,19 @@ model_config_args=(
 # 6. Execution
 # =======================================
 
-module load cuda/12.6 # need cuda>=12.4
-# For building deepspeed's cpu offload extension
-export CXX=g++
-export CC=g++
+
 
 # launch multinode multigpu execution
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
-RL_SCRIPT_PATH={{RL_SCRIPT_PATH}}
-
 torchrun "${torchrun_distributed_args[@]}" \
-    $RL_SCRIPT_PATH \
+    {{RL_SCRIPT_PATH}} \
     --deepspeed $deepspeed_path_to_config \
     "${rl_script_args[@]}" \
     "${rl_config_args[@]}" \
     "${model_config_args[@]}" 
 
 # clean up
-chmod --recursive 770 $TRAINING_OUTPUT_DIR # Make sure the group also has access
 rm -rf $PATH_CACHE
 printf "Done :)" 
 
