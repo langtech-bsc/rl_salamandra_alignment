@@ -20,13 +20,14 @@
 # =======================================
 # 1. Initialization
 # =======================================
-
+{{LOAD_MODULES}}
 {{ENVIRONMENT_VARIABLES}}
 
 # Dataset for RL
 export RL_DATASET_PATH={{RL_DATASET_PATH}}
 
 # Activate TRL environment
+{{SET_PYTHONPATH}}
 source $VENV_DIR/bin/activate
 echo "Output directory:"
 echo $TRAINING_OUTPUT_DIR

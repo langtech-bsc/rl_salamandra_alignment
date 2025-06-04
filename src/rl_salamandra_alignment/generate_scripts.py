@@ -287,7 +287,33 @@ def generate_launch_script(
     environment_dict["TRAINING_OUTPUT_DIR"] = internal_dir_paths["training"]
 
     # venv
-    environment_dict["VENV_DIR"] = config["execution"]["venv"]
+    venv_dir = config["execution"]["venv"]
+    environment_dict["VENV_DIR"] = venv_dir
+    ## handle python 3.12 venvs (the name must contain "python" and "3.12")
+    if "python" in venv_dir and ("3.12" in venv_dir or "312" in venv_dir):
+        # load modules
+        filled_template = replace_in_template(
+            filled_template,
+            "LOAD_MODULES",
+            "module load impi intel hdf5 mkl cuda/12.6 python/3.12.1-gcc"
+        )
+        # setup the pythonpath
+        filled_template = replace_in_template(
+            filled_template,
+            "SET_PYTHONPATH",
+            "export PYTHONPATH=\"$VENV_DIR/lib/python3.12/site-packages\""
+        )
+    else:
+        filled_template = replace_in_template(
+            filled_template,
+            "LOAD_MODULES",
+            ""
+        )
+        filled_template = replace_in_template(
+            filled_template,
+            "SET_PYTHONPATH",
+            ""
+        )
 
     # Generate export statements:
     environment_variables = [
