@@ -143,7 +143,7 @@ model_config_args=(
 module load cuda/12.6 # need cuda>=12.4
 # For building deepspeed's cpu offload extension
 export CXX=g++
-export CC=g++
+export CC=gcc
 
 # launch multinode multigpu execution
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
