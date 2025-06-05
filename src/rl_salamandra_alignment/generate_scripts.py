@@ -285,6 +285,9 @@ def generate_launch_script(
 
     # Automatically determine dir for training (checkpoints)
     environment_dict["TRAINING_OUTPUT_DIR"] = internal_dir_paths["training"]
+    
+    # original model dir
+    environment_dict["ORIGINAL_MODEL_PATH"] = config["model_config_args"]["model_name_or_path"]
 
     # venv
     venv_dir = config["execution"]["venv"]
@@ -400,6 +403,8 @@ def generate_launch_script(
     # Model args
     # ============
     model_config_args = deepcopy(config["model_config_args"])
+    # automaticall determine path to original model
+    model_config_args["model_name_or_path"] = "$ORIGINAL_MODEL_PATH"
 
     # automatically determine training dir:
     model_config_args["output_dir"] = "$TRAINING_OUTPUT_DIR"
