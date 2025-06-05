@@ -661,7 +661,7 @@ def get_config_ids(config_list: list) -> list:
     Returns:
         list: List of tuples (id, config)
     """
-    unique_timestamp = datetime.now().strftime("%Y_%m_%d_%M_%H")
+    unique_timestamp = datetime.now().strftime("%Y_%m_%H_%M_%d")
     configs_with_id = []
     
     for i, config in enumerate(config_list):
