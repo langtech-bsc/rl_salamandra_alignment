@@ -88,8 +88,11 @@ def main(script_args, training_args, model_args):
     peft_config = get_peft_config(model_args)
 
     if (
-        training_args.ref_model_path is None
-        and isinstance(model_args.model_name_or_path, str)
+        not hasattr(training_args, "ref_model_path") or
+        (
+            training_args.ref_model_path is None
+            and isinstance(model_args.model_name_or_path, str)
+        )
         ):
         # If the reference model is not specified, assume it is the same as the initial modelAdd commentMore actions
         training_args.ref_model_path = model_args.model_name_or_path
