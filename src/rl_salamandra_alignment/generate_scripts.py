@@ -285,9 +285,38 @@ def generate_launch_script(
 
     # Automatically determine dir for training (checkpoints)
     environment_dict["TRAINING_OUTPUT_DIR"] = internal_dir_paths["training"]
+    
+    # original model dir
+    environment_dict["ORIGINAL_MODEL_PATH"] = config["model_config_args"]["model_name_or_path"]
 
     # venv
-    environment_dict["VENV_DIR"] = config["execution"]["venv"]
+    venv_dir = config["execution"]["venv"]
+    environment_dict["VENV_DIR"] = venv_dir
+    ## handle python 3.12 venvs (the name must contain "python" and "3.12")
+    if "python" in venv_dir and ("3.12" in venv_dir or "312" in venv_dir):
+        # load modules
+        filled_template = replace_in_template(
+            filled_template,
+            "LOAD_MODULES",
+            "module load impi intel hdf5 mkl cuda/12.6 python/3.12.1-gcc"
+        )
+        # setup the pythonpath
+        filled_template = replace_in_template(
+            filled_template,
+            "SET_PYTHONPATH",
+            "export PYTHONPATH=\"$VENV_DIR/lib/python3.12/site-packages\""
+        )
+    else:
+        filled_template = replace_in_template(
+            filled_template,
+            "LOAD_MODULES",
+            ""
+        )
+        filled_template = replace_in_template(
+            filled_template,
+            "SET_PYTHONPATH",
+            ""
+        )
 
     # Generate export statements:
     environment_variables = [
@@ -374,6 +403,8 @@ def generate_launch_script(
     # Model args
     # ============
     model_config_args = deepcopy(config["model_config_args"])
+    # automaticall determine path to original model
+    model_config_args["model_name_or_path"] = "$ORIGINAL_MODEL_PATH"
 
     # automatically determine training dir:
     model_config_args["output_dir"] = "$TRAINING_OUTPUT_DIR"
@@ -635,7 +666,7 @@ def get_config_ids(config_list: list) -> list:
     Returns:
         list: List of tuples (id, config)
     """
-    unique_timestamp = datetime.now().strftime("%H_%M_%d_%m_%Y")
+    unique_timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M")
     configs_with_id = []
     
     for i, config in enumerate(config_list):
