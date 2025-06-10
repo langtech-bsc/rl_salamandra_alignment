@@ -25,6 +25,7 @@ TRL_Algorithms = Literal[
     "dpo",
     "sft_video_llm",
     "xpo",
+    "grpo",
 ]
 
 
