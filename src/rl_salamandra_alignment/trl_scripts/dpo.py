@@ -1,4 +1,4 @@
-# Copyright 2020-2025 The HuggingFace Team. All rights reserved.
+# Copyright 2023 The HuggingFace Inc. team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,10 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """
 # Full training
-python trl/scripts/dpo.py \
+python examples/scripts/dpo.py \
     --dataset_name trl-lib/ultrafeedback_binarized \
     --model_name_or_path Qwen/Qwen2-0.5B-Instruct \
     --learning_rate 5.0e-7 \
@@ -29,7 +28,7 @@ python trl/scripts/dpo.py \
     --no_remove_unused_columns
 
 # LoRA:
-python trl/scripts/dpo.py \
+python examples/scripts/dpo.py \
     --dataset_name trl-lib/ultrafeedback_binarized \
     --model_name_or_path Qwen/Qwen2-0.5B-Instruct \
     --learning_rate 5.0e-6 \
@@ -46,8 +45,6 @@ python trl/scripts/dpo.py \
     --lora_r 32 \
     --lora_alpha 16
 """
-
-import argparse
 
 import torch
 from datasets import load_dataset, load_from_disk
@@ -66,42 +63,39 @@ from trl import (
 from trl.trainer.utils import SIMPLE_CHAT_TEMPLATE
 
 
-def main(script_args, training_args, model_args):
+if __name__ == "__main__":
+    parser = TrlParser((ScriptArguments, DPOConfig, ModelConfig))
+    script_args, training_args, model_config = parser.parse_args_and_config()
+
     ################
     # Model & Tokenizer
     ###################
     torch_dtype = (
-        model_args.torch_dtype if model_args.torch_dtype in ["auto", None] else getattr(torch, model_args.torch_dtype)
+        model_config.torch_dtype
+        if model_config.torch_dtype in ["auto", None]
+        else getattr(torch, model_config.torch_dtype)
     )
-    quantization_config = get_quantization_config(model_args)
+    quantization_config = get_quantization_config(model_config)
     model_kwargs = dict(
-        revision=model_args.model_revision,
-        attn_implementation=model_args.attn_implementation,
+        revision=model_config.model_revision,
+        attn_implementation=model_config.attn_implementation,
         torch_dtype=torch_dtype,
         use_cache=False if training_args.gradient_checkpointing else True,
         device_map=get_kbit_device_map() if quantization_config is not None else None,
         quantization_config=quantization_config,
     )
     model = AutoModelForCausalLM.from_pretrained(
-        model_args.model_name_or_path, trust_remote_code=model_args.trust_remote_code, **model_kwargs
+        model_config.model_name_or_path, trust_remote_code=model_config.trust_remote_code, **model_kwargs
     )
-    peft_config = get_peft_config(model_args)
-
-    if (
-        training_args.ref_model_path is None
-        and isinstance(model_args.model_name_or_path, str)
-        ):
-        # If the reference model is not specified, assume it is the same as the initial modelAdd commentMore actions
-        training_args.ref_model_path = model_args.model_name_or_path
+    peft_config = get_peft_config(model_config)
     if peft_config is None:
-        # Provisionally, for the reference model, use the same loading config from the trained model
         ref_model = AutoModelForCausalLM.from_pretrained(
-            training_args.ref_model_path, trust_remote_code=model_args.trust_remote_code, **model_kwargs
+            model_config.model_name_or_path, trust_remote_code=model_config.trust_remote_code, **model_kwargs
         )
     else:
         ref_model = None
     tokenizer = AutoTokenizer.from_pretrained(
-        model_args.model_name_or_path, trust_remote_code=model_args.trust_remote_code
+        model_config.model_name_or_path, trust_remote_code=model_config.trust_remote_code
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -142,18 +136,3 @@ def main(script_args, training_args, model_args):
     trainer.save_model(training_args.output_dir)
     if training_args.push_to_hub:
         trainer.push_to_hub(dataset_name=script_args.dataset_name)
-
-
-def make_parser(subparsers: argparse._SubParsersAction = None):
-    dataclass_types = (ScriptArguments, DPOConfig, ModelConfig)
-    if subparsers is not None:
-        parser = subparsers.add_parser("dpo", help="Run the DPO training script", dataclass_types=dataclass_types)
-    else:
-        parser = TrlParser(dataclass_types)
-    return parser
-
-
-if __name__ == "__main__":
-    parser = make_parser()
-    script_args, training_args, model_args = parser.parse_args_and_config()
-    main(script_args, training_args, model_args)

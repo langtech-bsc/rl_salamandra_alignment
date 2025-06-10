@@ -4,7 +4,6 @@ import os
 import json
 from typing import Union
 from copy import deepcopy
-from datetime import datetime
 from rl_salamandra_alignment.distributed_configs import get_distributed_config_path
 from rl_salamandra_alignment.trl_scripts import get_script_path
 from rl_salamandra_alignment import templates
@@ -144,7 +143,7 @@ def _internal_file_paths(output_dir: str, id: str):
         "slurm_eval_local_job": os.path.join(output_dir, "slurm_scripts", f"eval_local_{id}.job"),
         "slurm_eval_local_output": os.path.join(output_dir, "slurm_logs", id, f"%j_%x_eval_local.log"),
         "slurm_eval_local_error": os.path.join(output_dir, "slurm_logs", id, f"%j_%x_eval_local.err"),
-        "config": os.path.join(output_dir, "configs", f"config_{id}.yaml")
+        "config": os.path.join(output_dir, "configs", f"config_{id}.json")
     }
     return d
 
@@ -185,10 +184,9 @@ def setup_micro_output_dir_tree(
     internal_file_paths = _internal_file_paths(output_dir, id)
     with open(
         internal_file_paths["config"],
-        "w",
-        encoding="utf-8"
+        "w"
     ) as f:
-        yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+        json.dump(config, f, indent=2)
 
 
 def generate_distributed_run_script(
@@ -285,38 +283,9 @@ def generate_launch_script(
 
     # Automatically determine dir for training (checkpoints)
     environment_dict["TRAINING_OUTPUT_DIR"] = internal_dir_paths["training"]
-    
-    # original model dir
-    environment_dict["ORIGINAL_MODEL_PATH"] = config["model_config_args"]["model_name_or_path"]
 
     # venv
-    venv_dir = config["execution"]["venv"]
-    environment_dict["VENV_DIR"] = venv_dir
-    ## handle python 3.12 venvs (the name must contain "python" and "3.12")
-    if "python" in venv_dir and ("3.12" in venv_dir or "312" in venv_dir):
-        # load modules
-        filled_template = replace_in_template(
-            filled_template,
-            "LOAD_MODULES",
-            "module load impi intel hdf5 mkl cuda/12.6 python/3.12.1-gcc"
-        )
-        # setup the pythonpath
-        filled_template = replace_in_template(
-            filled_template,
-            "SET_PYTHONPATH",
-            "export PYTHONPATH=\"$VENV_DIR/lib/python3.12/site-packages\""
-        )
-    else:
-        filled_template = replace_in_template(
-            filled_template,
-            "LOAD_MODULES",
-            ""
-        )
-        filled_template = replace_in_template(
-            filled_template,
-            "SET_PYTHONPATH",
-            ""
-        )
+    environment_dict["VENV_DIR"] = config["execution"]["venv"]
 
     # Generate export statements:
     environment_variables = [
@@ -403,8 +372,6 @@ def generate_launch_script(
     # Model args
     # ============
     model_config_args = deepcopy(config["model_config_args"])
-    # automaticall determine path to original model
-    model_config_args["model_name_or_path"] = "$ORIGINAL_MODEL_PATH"
 
     # automatically determine training dir:
     model_config_args["output_dir"] = "$TRAINING_OUTPUT_DIR"
@@ -656,27 +623,6 @@ def generate_one_job_set(output_dir: str, config: dict, id: str) -> tuple:
     return job_set_paths
 
 
-def get_config_ids(config_list: list) -> list:
-    """Give an unique ID to each config.
-    Each ID corresponds to a subexperiment.
-
-    Args:
-        config_list (list): List of config dicts
-
-    Returns:
-        list: List of tuples (id, config)
-    """
-    unique_timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M")
-    configs_with_id = []
-    
-    for i, config in enumerate(config_list):
-        id = f"{str(i).zfill(2)}__{unique_timestamp}"
-        configs_with_id.append(
-            (id, config)
-        )
-    
-    return configs_with_id
-
 def generate_all_job_files(config: dict) -> list[tuple]:
     """Generate the slurm scripts for an experiment
 
@@ -696,8 +642,10 @@ def generate_all_job_files(config: dict) -> list[tuple]:
     unfolded_configs = unfold_dict(config)
 
     # Give an ID to each subexperiment config
-    unfolded_configs_with_id = get_config_ids(unfolded_configs)
-    
+    unfolded_configs_with_id = [
+        (str(id).zfill(2), cfg)
+        for id, cfg in enumerate(unfolded_configs)
+    ]
     # build the tree structure for each subexperiment
     for id, cfg in unfolded_configs_with_id:
         setup_micro_output_dir_tree(output_dir, cfg, id)
