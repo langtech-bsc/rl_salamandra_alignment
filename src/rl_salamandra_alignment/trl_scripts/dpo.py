@@ -94,10 +94,7 @@ def main(script_args, training_args, model_args):
         # If the reference model is not specified, assume it is the same as the initial modelAdd commentMore actions
         training_args.ref_model_path = model_args.model_name_or_path
     if peft_config is None:
-        # Provisionally, for the reference model, use the same loading config from the trained model
-        ref_model = AutoModelForCausalLM.from_pretrained(
-            training_args.ref_model_path, trust_remote_code=model_args.trust_remote_code, **model_kwargs
-        )
+        ref_model = training_args.ref_model_path # DPOTrainer takes care of initializing the reference model
     else:
         ref_model = None
     tokenizer = AutoTokenizer.from_pretrained(
