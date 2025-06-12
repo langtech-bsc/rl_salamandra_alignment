@@ -17,6 +17,33 @@ def dict_sort(dict_list: list) -> list:
     """
     return sorted(dict_list, key=lambda d: json.dumps(d))
 
+def drop_none_values(data):
+    """
+    Recursively drops all None values from dictionaries and lists of dictionaries.
+    
+    Args:
+        data: Input data (dict, list, or other types)
+        
+    Returns:
+        Cleaned data with all None values removed
+    """
+    if isinstance(data, dict):
+        # Process dictionary
+        return {
+            key: drop_none_values(value)
+            for key, value in data.items()
+            if value is not None
+        }
+    elif isinstance(data, list):
+        # Process list (filter None and recurse into elements)
+        return [
+            drop_none_values(item)
+            for item in data
+            if item is not None
+        ]
+    else:
+        # Return non-dict/list values as-is
+        return data
 
 def unfold_dict(input_dict: dict) -> list:
     """
@@ -65,6 +92,9 @@ def unfold_dict(input_dict: dict) -> list:
             for partial_dict in result:
                 partial_dict[key] = value
     result = [deepcopy(d) for d in result]
+    
+    # drop all None values:
+    result = [drop_none_values(d) for d in result]
 
     # Make sure all configs share the same evaluation config.
     if evaluation_config:
