@@ -92,7 +92,7 @@ if __name__ == "__main__":
     ################
     dataset = load_from_disk(script_args.dataset_name)
     eval_samples = 100
-    train_dataset=dataset[script_args.dataset_train_split],
+    train_dataset=dataset[script_args.dataset_train_split]
     eval_dataset=dataset[script_args.dataset_test_split] if training_args.eval_strategy != "no" else None
     # train_dataset = dataset.select(range(len(dataset) - eval_samples))
     # eval_dataset = dataset.select(range(len(dataset) - eval_samples, len(dataset)))
