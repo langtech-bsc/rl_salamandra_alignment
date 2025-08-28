@@ -26,6 +26,7 @@ TRL_Algorithms = Literal[
     "sft_video_llm",
     "xpo",
     "grpo",
+    "grpo_rlvr",
 ]
 
 
