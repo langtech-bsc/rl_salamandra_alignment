@@ -1,8 +1,60 @@
 """Script to convert HF datasets to a format that can be run locally in MN5"""
 from argparse import ArgumentParser
-from datasets import load_dataset, load_from_disk, DatasetDict, Dataset
+from datasets import load_dataset, load_from_disk, DatasetDict, Dataset, concatenate_datasets
 import os
 from rl_salamandra_alignment import logger
+import json
+from tqdm import tqdm
+
+def read_json(input_path):
+    with open(input_path, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+def read_jsonl(input_path):
+    data = []
+    with open(input_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            if line.strip():
+                data.append(json.loads(line))
+    return data
+
+def try_load_directory_of_jsons(path:str):
+    filenames = os.listdir(path)
+    jsons = [filename for filename in filenames if filename.endswith(".json")]
+    jsonls = [filename for filename in filenames if filename.endswith(".jsonl")]
+    if not jsons and not jsonls:
+        raise ValueError(f"No json/jsonl files found in {path}")
+    all_datasets = []
+    for json in tqdm(jsons):
+        sub_data = read_json(os.path.join(path, json))
+        sub_ds = Dataset.from_list(sub_data)
+        all_datasets.append(sub_ds)
+
+    for jsonl in tqdm(jsonls):
+        sub_data = read_jsonl(os.path.join(path, jsonl))
+        sub_ds = Dataset.from_list(sub_data)
+        all_datasets.append(sub_ds)
+    
+    ds = concatenate_datasets(all_datasets)
+    print(f"There are {len(ds)} entries")
+
+    return ds
+
+def try_load_dataset(path):
+    """Try to load a dataset using load_dataset or load_from_disk."""
+    try:
+        ds = load_from_disk(path)
+        return ds
+    except Exception:
+        try:
+            ds = load_dataset(path)
+            return ds
+        except Exception:
+            try: 
+                ds = try_load_directory_of_jsons(path)
+                return ds
+            except Exception as e:
+                raise RuntimeError(f"Could not load dataset from {path}: {e}")
 
 def convert_dataset(
     dataset_input_path: str,
@@ -23,15 +75,9 @@ def convert_dataset(
 
     dataset = None
     try:
-        dataset = load_from_disk(dataset_input_path)
+        dataset = try_load_dataset(dataset_input_path)
     except:
         pass
-
-    if dataset is None:
-        try:
-            dataset = load_dataset(dataset_input_path)
-        except:
-            pass
 
     if dataset:
         # create test and dev splits if not found
