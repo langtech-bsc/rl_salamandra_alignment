@@ -37,10 +37,14 @@ def determine_dataset_columns(dataset_list: list[Dataset])-> list[str]:
     Returns:
         list[str]: _description_
     """
+    print("Determining column names")
     original_column_names = [
         dataset.column_names for dataset in dataset_list
     ]
     # Get all unique elements from first list
+    print(
+    "Your datasets have the following keys:\n" + "\n".join([str(sublist) for sublist in original_column_names])
+    )
     unique_elements = set(original_column_names[0])
 
     # Check which elements exist in all lists
@@ -54,9 +58,11 @@ def determine_dataset_columns(dataset_list: list[Dataset])-> list[str]:
         for elem in common_columns
         if  elem in DATASET_KEYS_FOR_RL
     ]
+    
+
     if not columns_for_rl:
-        raise Exception(
-            f"Your datasets do not have the column names needed for Reinforcement Learning.\nAre any of your datasets missing any of these columns?\n   {DATASET_KEYS_FOR_RL}\n\n" + "Your datasets have the following keys:\n" + "\n".join([str(sublist) for sublist in original_column_names])
+        raise ValueError(
+            f"Your datasets do not have the column names needed for Reinforcement Learning.\nAre any of your datasets missing any of these columns?\n   {DATASET_KEYS_FOR_RL}\n\n"
         )
     return columns_for_rl
 
@@ -67,12 +73,16 @@ def try_load_directory_of_jsons(path:str):
     if not jsons and not jsonls:
         raise ValueError(f"No json/jsonl files found in {path}")
     all_datasets = []
-    for json in tqdm(jsons):
+    tqdm_bar = tqdm(jsons)
+    for json in tqdm_bar:
+        tqdm_bar.set_description(f"Loading: {json}")
         sub_data = read_json(os.path.join(path, json))
         sub_ds = Dataset.from_list(sub_data)
         all_datasets.append(sub_ds)
 
-    for jsonl in tqdm(jsonls):
+    tqdm_bar = tqdm(jsonls)
+    for jsonl in tqdm_bar:
+        tqdm_bar.set_description(f"Loading: {jsonl}")
         sub_data = read_jsonl(os.path.join(path, jsonl))
         sub_ds = Dataset.from_list(sub_data)
         all_datasets.append(sub_ds)
@@ -80,12 +90,20 @@ def try_load_directory_of_jsons(path:str):
     dataset_columns = determine_dataset_columns(
         all_datasets
     )
+    print(dataset_columns)
+
     all_datasets_new = [
         dataset.select_columns(dataset_columns)
         for dataset in all_datasets
     ]
-
-    ds = concatenate_datasets(all_datasets_new)
+    print(all_datasets_new)
+    import time
+    time.sleep(10)
+    try:
+        ds = concatenate_datasets(all_datasets_new)
+    except Exception as e:
+        print(e)
+        raise e
     print(f"There are {len(ds)} entries")
 
     return ds
@@ -126,6 +144,7 @@ def convert_dataset(
     dataset = None
     try:
         dataset = try_load_dataset(dataset_input_path)
+        print(f"Raw Dataset loaded!")
     except:
         pass
 
