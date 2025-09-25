@@ -6,6 +6,16 @@ from rl_salamandra_alignment import logger
 import json
 from tqdm import tqdm
 
+DATASET_KEYS_FOR_RL = [
+    "prompt",
+    "chosen",
+    "rejected",
+    "messages",
+    "completions",
+    "completion",
+    "label"
+]
+
 def read_json(input_path):
     with open(input_path, 'r', encoding='utf-8') as f:
         return json.load(f)
@@ -17,6 +27,38 @@ def read_jsonl(input_path):
             if line.strip():
                 data.append(json.loads(line))
     return data
+
+def determine_dataset_columns(dataset_list: list[Dataset])-> list[str]:
+    """Given a list of datasets, return the column names common to _all_ datasets, _and_ only those required for RL alignment.
+
+    Args:
+        dataset_list (list[Dataset]): _description_
+
+    Returns:
+        list[str]: _description_
+    """
+    original_column_names = [
+        dataset.column_names for dataset in dataset_list
+    ]
+    # Get all unique elements from first list
+    unique_elements = set(original_column_names[0])
+
+    # Check which elements exist in all lists
+    common_columns = [
+        elem
+        for elem in unique_elements
+        if all(elem in sublist for sublist in original_column_names)
+    ]
+    columns_for_rl = [
+        elem
+        for elem in common_columns
+        if  elem in DATASET_KEYS_FOR_RL
+    ]
+    if not columns_for_rl:
+        raise Exception(
+            f"Your datasets do not have the column names needed for Reinforcement Learning.\nAre any of your datasets missing any of these columns?\n   {DATASET_KEYS_FOR_RL}\n\n" + "Your datasets have the following keys:\n" + "\n".join([str(sublist) for sublist in original_column_names])
+        )
+    return columns_for_rl
 
 def try_load_directory_of_jsons(path:str):
     filenames = os.listdir(path)
@@ -35,7 +77,15 @@ def try_load_directory_of_jsons(path:str):
         sub_ds = Dataset.from_list(sub_data)
         all_datasets.append(sub_ds)
     
-    ds = concatenate_datasets(all_datasets)
+    dataset_columns = determine_dataset_columns(
+        all_datasets
+    )
+    all_datasets_new = [
+        dataset.select_columns(dataset_columns)
+        for dataset in all_datasets
+    ]
+
+    ds = concatenate_datasets(all_datasets_new)
     print(f"There are {len(ds)} entries")
 
     return ds
