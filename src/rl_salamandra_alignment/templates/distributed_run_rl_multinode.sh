@@ -35,12 +35,44 @@ export MASTER_PORT=$(find_unused_port)
 
 
 # =======================================
+# Convert dataset to expected format
+# =======================================
+
+# Note: Only one node converts the dataset
+
+# Activate venv
+{{VENV_DIR}}
+{{SET_PYTHONPATH}}
+source $VENV_DIR/bin/activate
+
+export PATH_CACHE="{{CACHE_DIR}}"
+rm -rf $PATH_CACHE
+mkdir -p $PATH_CACHE
+
+# Dataset for RL
+export RL_DATASET_PATH="{{RL_DATASET_PATH}}"
+echo "Using dataset:"
+echo $RL_DATASET_PATH
+OLD_RL_DATASET_PATH=$RL_DATASET_PATH
+export RL_DATASET_PATH="$PATH_CACHE/rl_dataset"
+
+rl_salamandra_convert_dataset \
+    --input_path \
+    $OLD_RL_DATASET_PATH \
+    --output_path \
+    $RL_DATASET_PATH
+
+
+# =======================================
 # Execute the launch script on every node
 # =======================================
 
-export LAUNCH_SCRIPT={{LAUNCH_SCRIPT}}
+export LAUNCH_SCRIPT="{{LAUNCH_SCRIPT}}"
 
 chmod +x $LAUNCH_SCRIPT
 srun \
     --wait=100 \
     $LAUNCH_SCRIPT
+
+# clean up
+rm -rf $PATH_CACHE

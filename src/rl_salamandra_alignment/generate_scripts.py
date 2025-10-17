@@ -227,8 +227,39 @@ def generate_distributed_run_script(
         "SBATCH_PARAMETERS",
         slurm_preamble
     )
+    # ============
+    # Cache
+    # ============
+    internal_dir_paths = _internal_dir_paths(output_dir, id)
+    filled_template = replace_in_template(
+        filled_template,
+        "CACHE_DIR",
+        internal_dir_paths["cache"]
+    )
+    # ============
+    # Convert dataset
+    # ============
+    venv_dir = config["execution"]["venv"]
+    filled_template = replace_in_template(
+        filled_template,
+        "VENV_DIR",
+        f'export VENV_DIR="{venv_dir}"'
+    )
+    filled_template = write_commands_for_python_venv(
+        venv_dir, filled_template
+    )
+    
+    rl_dataset_path = config["rl_script_args"]["dataset_name"]
+    filled_template = replace_in_template(
+        filled_template,
+        "RL_DATASET_PATH",
+        rl_dataset_path
+    )
 
-    # fill the Launch script
+
+    # ============
+    # Fill the Launch script
+    # ============
     launch_script_path = internal_file_paths["slurm_training_launch"]
     filled_template = replace_in_template(
         filled_template,
@@ -254,6 +285,37 @@ def get_script_args_string(script_args_dict: dict) -> str:
     ]
     return "\n".join(script_args_string)
 
+
+def write_commands_for_python_venv(
+    venv_dir: str,
+    filled_template: str,
+) -> str:
+    ## handle python 3.12 venvs (the name must contain "python" and "3.12")
+    if "python" in venv_dir and ("3.12" in venv_dir or "312" in venv_dir):
+        # load modules
+        filled_template = replace_in_template(
+            filled_template,
+            "LOAD_MODULES",
+            "module load impi intel hdf5 mkl cuda/12.6 python/3.12.1-gcc"
+        )
+        # setup the pythonpath
+        filled_template = replace_in_template(
+            filled_template,
+            "SET_PYTHONPATH",
+            "export PYTHONPATH=\"$VENV_DIR/lib/python3.12/site-packages\""
+        )
+    else:
+        filled_template = replace_in_template(
+            filled_template,
+            "LOAD_MODULES",
+            ""
+        )
+        filled_template = replace_in_template(
+            filled_template,
+            "SET_PYTHONPATH",
+            ""
+        )
+    return filled_template
 
 def generate_launch_script(
         output_dir: str,
@@ -292,32 +354,9 @@ def generate_launch_script(
     # venv
     venv_dir = config["execution"]["venv"]
     environment_dict["VENV_DIR"] = venv_dir
-    ## handle python 3.12 venvs (the name must contain "python" and "3.12")
-    if "python" in venv_dir and ("3.12" in venv_dir or "312" in venv_dir):
-        # load modules
-        filled_template = replace_in_template(
-            filled_template,
-            "LOAD_MODULES",
-            "module load impi intel hdf5 mkl cuda/12.6 python/3.12.1-gcc"
-        )
-        # setup the pythonpath
-        filled_template = replace_in_template(
-            filled_template,
-            "SET_PYTHONPATH",
-            "export PYTHONPATH=\"$VENV_DIR/lib/python3.12/site-packages\""
-        )
-    else:
-        filled_template = replace_in_template(
-            filled_template,
-            "LOAD_MODULES",
-            ""
-        )
-        filled_template = replace_in_template(
-            filled_template,
-            "SET_PYTHONPATH",
-            ""
-        )
-
+    filled_template = write_commands_for_python_venv(venv_dir, filled_template)
+    
+    
     # Generate export statements:
     environment_variables = [
         f'export {k}="{v}"'
@@ -334,28 +373,14 @@ def generate_launch_script(
     # ============
     # RL Dataset
     # ============
-    rl_dataset_path = config["rl_script_args"]["dataset_name"]
 
     # The following line is to avoid using the original path to the RL dataset.
     # Remember that the RL dataset is converted to a format that can be locally run in MN5,
     # and this conversion happens before launching the fine-tuning
     config["rl_script_args"]["dataset_name"] = "$RL_DATASET_PATH"
 
-    filled_template = replace_in_template(
-        filled_template,
-        "RL_DATASET_PATH",
-        rl_dataset_path
-    )
 
-    # ============
-    # Cache
-    # ============
 
-    filled_template = replace_in_template(
-        filled_template,
-        "CACHE_DIR",
-        internal_dir_paths["cache"]
-    )
 
     # ============
     # Distributed config
@@ -443,13 +468,16 @@ def generate_one_training_job(output_dir: str, config: dict, id: str) -> dict:
     """
 
     # Generate the content of the scripts
-    launch_script_string = generate_launch_script(output_dir, config, id)
-
     distributed_run_script_string = generate_distributed_run_script(
         output_dir,
         config,
         id,
     )
+    launch_script_string = generate_launch_script(
+        output_dir,
+        config, 
+        id
+        )
 
     # Save the content to file
     internal_file_paths = _internal_file_paths(output_dir, id)

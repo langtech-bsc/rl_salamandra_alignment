@@ -23,16 +23,13 @@
 {{LOAD_MODULES}}
 {{ENVIRONMENT_VARIABLES}}
 
-# Dataset for RL
-export RL_DATASET_PATH={{RL_DATASET_PATH}}
 
 # Activate TRL environment
 {{SET_PYTHONPATH}}
 source $VENV_DIR/bin/activate
 echo "Output directory:"
 echo $TRAINING_OUTPUT_DIR
-echo "Dataset:"
-echo $RL_DATASET_PATH
+
 chmod --recursive 770 $TRAINING_OUTPUT_DIR # Make sure the group also has access
 
 export MASTER_ADDR=$SLURM_LAUNCH_NODE_IPADDR
@@ -49,8 +46,6 @@ echo xxxxxxxxxxxxxxxxxxxxxxxxxxxx
 # =======================================
 
 # Manage Cache
-export PATH_CACHE={{CACHE_DIR}}
-mkdir -p $PATH_CACHE
 export HF_HOME=$PATH_CACHE
 export HUGGINGFACE_HOME=$PATH_CACHE
 export HF_DATASETS_CACHE=$PATH_CACHE
@@ -59,8 +54,6 @@ export WANDB_CACHE_DIR=$PATH_CACHE
 export TORCH_EXTENSIONS_DIR=$PATH_CACHE
 export TRITON_HOME=$PATH_CACHE
 export TRITON_CACHE_DIR="${TMPDIR}/.triton/autotune"
-
-rm -rf $PATH_CACHE
 
 # WANDB:
 timestamp=$(date +"%Y%m%d-%H.%M.%S")
@@ -112,17 +105,6 @@ torchrun_distributed_args=(
 # 5. Arguments for Python script
 # =======================================
 
-# Convert dataset
-OLD_RL_DATASET_PATH=$RL_DATASET_PATH
-export RL_DATASET_PATH="$PATH_CACHE/rl_dataset"
-
-rl_salamandra_convert_dataset \
-    --input_path \
-    $OLD_RL_DATASET_PATH \
-    --output_path \
-    $RL_DATASET_PATH
-
-
 # Arguments for python script
 rl_script_args=(
 
@@ -163,8 +145,7 @@ cp $ORIGINAL_MODEL_PATH/tokenizer_config.json $TRAINING_OUTPUT_DIR/tokenizer_con
 # clean up
 
 chmod --recursive 770 $TRAINING_OUTPUT_DIR # Make sure the group also has access
-rm -rf $PATH_CACHE
-printf "Done :)" 
+printf "$(hostname) Done :)\n" 
 
 
 ########################
