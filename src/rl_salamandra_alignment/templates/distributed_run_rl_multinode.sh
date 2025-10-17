@@ -41,6 +41,7 @@ export MASTER_PORT=$(find_unused_port)
 # Note: Only one node converts the dataset
 
 # Activate venv
+{{LOAD_MODULES}}
 {{VENV_DIR}}
 {{SET_PYTHONPATH}}
 source $VENV_DIR/bin/activate
