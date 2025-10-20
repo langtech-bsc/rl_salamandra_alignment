@@ -72,7 +72,7 @@ export LAUNCH_SCRIPT="{{LAUNCH_SCRIPT}}"
 
 chmod +x $LAUNCH_SCRIPT
 srun \
-    --wait=500 \
+    --wait=1000 \
     $LAUNCH_SCRIPT
 
 # clean up
