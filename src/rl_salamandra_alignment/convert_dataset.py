@@ -161,59 +161,93 @@ def convert_dataset(
             pass
         elif "test" in dataset and "eval" not in dataset:
             full_train_split = dataset["train"]
-            eval_size = int(DEV_SPLIT_SIZE * len(full_train_split))
-            train_dev_split = full_train_split.train_test_split(
-                test_size=eval_size,
-                shuffle=True,
-                seed=RANDOM_SEED
-            )
-            dataset = DatasetDict(
-                {
-                    "train": train_dev_split["train"], 
-                    "eval": train_dev_split["test"],
-                    "test": dataset["test"]
-                }
-            )
+            if DEV_SPLIT_SIZE == 0:
+                dataset = DatasetDict({"train": full_train_split, "test": dataset["test"]})
+            else:
+                eval_size = int(DEV_SPLIT_SIZE * len(full_train_split))
+                train_dev_split = full_train_split.train_test_split(
+                    test_size=eval_size,
+                    shuffle=True,
+                    seed=RANDOM_SEED
+                )
+                dataset = DatasetDict(
+                    {
+                        "train": train_dev_split["train"], 
+                        "eval": train_dev_split["test"],
+                        "test": dataset["test"]
+                    }
+                )
             
         elif "test" not in dataset and "eval" in dataset:
             full_train_split = dataset["train"]
-            test_size = int(TEST_SPLIT_SIZE * len(full_train_split))
-            train_dev_split = full_train_split.train_test_split(
-                test_size=test_size,
-                shuffle=True,
-                seed=RANDOM_SEED
-            )
-            dataset = DatasetDict(
-                {
-                    "train": train_dev_split["train"], 
-                    "eval": dataset["eval"],
-                    "test": train_dev_split["test"]
-                }
-            )
+            if TEST_SPLIT_SIZE == 0:
+                dataset = DatasetDict({"train": dataset["train"], "test": dataset["test"]})
+            else:
+                test_size = int(TEST_SPLIT_SIZE * len(full_train_split))
+                train_dev_split = full_train_split.train_test_split(
+                    test_size=test_size,
+                    shuffle=True,
+                    seed=RANDOM_SEED
+                )
+                dataset = DatasetDict(
+                    {
+                        "train": train_dev_split["train"], 
+                        "eval": dataset["eval"],
+                        "test": train_dev_split["test"]
+                    }
+                )
             
         elif "test" not in dataset and "eval" not in dataset:
             # We will need to split two times
             full_train_split = dataset["train"]
             test_size = int(TEST_SPLIT_SIZE * len(full_train_split))
             eval_size = int(DEV_SPLIT_SIZE * len(full_train_split))
-            train_TestAndEval = full_train_split.train_test_split(
-                test_size= test_size + eval_size,
-                shuffle=True,
-                seed=RANDOM_SEED
-            )
-            TestAndEval = train_TestAndEval["test"].train_test_split(
-                test_size=test_size,
-                train_size=eval_size,
-                shuffle=True,
-                seed=RANDOM_SEED
-            )
-            
-            dataset = DatasetDict(
-                {
-                    "train": train_TestAndEval["train"], 
-                    "eval": TestAndEval["train"],
-                    "test": TestAndEval["test"]
-                }
+            if TEST_SPLIT_SIZE == 0 and DEV_SPLIT_SIZE == 0:
+                print("Producing only `train` split, because test and dev size were set to zero")
+                dataset = DatasetDict(
+                    {"train": full_train_split}
+                )
+            elif TEST_SPLIT_SIZE == 0:
+                print("Producing only `train` and `dev` splits, because test size was set to zero")
+                train_dev = full_train_split.train_test_split(
+                    test_size = eval_size,
+                    shuffle = True,
+                    seed = RANDOM_SEED
+                )
+                dataset = DatasetDict(
+                    {"train": train_dev["train"], "dev": train_dev["test"]}
+                )
+            elif DEV_SPLIT_SIZE == 0:
+                print("Producing only `train` and `test` splits, because dev size was set to zero")
+                train_test = full_train_split.train_test_split(
+                    test_size=test_size,
+                    shuffle=True,
+                    seed=RANDOM_SEED
+                )
+                dataset = DatasetDict(
+                    {"train": train_test["train"], "test": train_test["test"]}
+                )
+            else:
+                print("Producing `train`, `test`, and `dev` splits")
+                
+                train_TestAndEval = full_train_split.train_test_split(
+                    test_size= test_size + eval_size,
+                    shuffle=True,
+                    seed=RANDOM_SEED
+                )
+                TestAndEval = train_TestAndEval["test"].train_test_split(
+                    test_size=test_size,
+                    train_size=eval_size,
+                    shuffle=True,
+                    seed=RANDOM_SEED
+                )
+                
+                dataset = DatasetDict(
+                    {
+                        "train": train_TestAndEval["train"], 
+                        "eval": TestAndEval["train"],
+                        "test": TestAndEval["test"]
+                    }
             )
         else:
             raise(f"Check the splits for \n{dataset_input_path}\n{list(dataset.keys())}")
@@ -231,6 +265,93 @@ def convert_dataset(
     else:
         logger.warning(f"Problem loading this file:\n{dataset_input_path}")
         raise ValueError("Dataset could not be automatically loaded")
+
+def to_nemo_rl_format_sft(
+    dataset_split: Dataset,
+    output_path: str
+)-> None:
+    dataset_split.to_json(
+        output_path,
+        lines = True # make sure it is JSONL
+    )
+
+# Nemo-RL uses these indices to specify which answer is "chosen" and which is "rejected"
+CHOSEN_RANK_INT = 0
+REJECTED_RANK_INT = 1 
+
+def format_content(content, role: str) -> list:
+    """Convert content to openai format"""
+    if isinstance(content, list): return content
+    if isinstance(content, str):
+        # Convert to
+        return [{"role": role, "content": content}]
+        
+        
+        
+def preference_entry_to_nemo_rl(
+    entry : dict
+)-> dict:
+    # Based on example from
+    # https://github.com/NVIDIA-NeMo/RL/blob/d843f02e6dd4e7b0cd4879139e986e3bb2bd267d/docs/guides/dpo.md#direct-preference-optimization-in-nemo-rl
+    entry["context"] = format_content(entry["prompt"], "user")
+    entry["completions"] = [
+        {
+            "rank": CHOSEN_RANK_INT,
+            "completion": format_content(entry["chosen"], "assistant")
+        },
+        {
+            "rank": REJECTED_RANK_INT,
+            "completion": format_content(entry["rejected"], "assistant")
+        }
+    ]
+    return entry
+        
+def to_nemo_rl_format_preference(
+    dataset_split: Dataset,
+    output_path: str
+)-> None:
+    rl_format_preference = dataset_split.map(
+        preference_entry_to_nemo_rl
+    )
+    rl_format_preference.to_json(
+        output_path,
+        lines = True # make sure it is JSONL
+    )
+    
+    
+def convert_to_nemo_rl_format(
+    dataset_path : str
+)-> None:
+    """Convert HF Dataset to the format needed for the Nemo-RL framework.
+    Note that SFT datasets and DPO datasets are handled differently.
+
+    Args:
+        dataset_path (str): _description_
+    """
+    
+    dataset_dict = load_from_disk(dataset_path)
+    dataset_columns = dataset_dict["train"].column_names
+    if "messages" in dataset_columns:
+        print(f"Detected SFT Dataset")
+        # In this case, simply convert to JSONL
+        for split_name in dataset_dict:
+            split = dataset_dict[split_name]
+            to_nemo_rl_format_sft(
+                split,
+                os.path.join(dataset_path, f"{split_name}.jsonl")
+            )
+        
+    if "chosen" in dataset_columns and "rejected" in dataset_columns:
+        print(f"Detected Preference Dataset")
+        
+        for split_name in dataset_dict:
+            split = dataset_dict[split_name]
+            to_nemo_rl_format_preference(
+                split,
+                os.path.join(dataset_path, f"{split_name}.jsonl")
+            )
+    
+    
 
 def main_convert():
     parser = ArgumentParser()
@@ -263,6 +384,11 @@ def main_convert():
         type=int,
         required=False
     )
+    parser.add_argument(
+        "--to_nemo_rl",
+        help="Convert to NemoRL dataset format",
+        action="store_true",
+    )
     args = parser.parse_args()
     
     global DEV_SPLIT_SIZE
@@ -285,6 +411,11 @@ def main_convert():
         args.input_path,
         args.output_path
     )
+    if args.to_nemo_rl:
+        convert_to_nemo_rl_format(
+            args.output_path
+        )
+        
 
 
 if __name__ == "__main__":
