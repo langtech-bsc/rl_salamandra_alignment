@@ -142,6 +142,7 @@ torchrun "${torchrun_distributed_args[@]}" \
 
 # copy original tokenizer config to get the original chat_template
 cp $ORIGINAL_MODEL_PATH/tokenizer_config.json $TRAINING_OUTPUT_DIR/tokenizer_config.json 
+cp $ORIGINAL_MODEL_PATH/model.safetensors.index.json $TRAINING_OUTPUT_DIR/model.safetensors.index.json
 # clean up
 
 chmod --recursive 770 $TRAINING_OUTPUT_DIR # Make sure the group also has access
