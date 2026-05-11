@@ -1,7 +1,7 @@
 """Top-level package for RL - Salamandra Alignment."""
 
-__author__ = """LangTech BSC"""
-__email__ = 'langtech@bsc.es'
+__author__ = """Luis Antonio Vasquez Reina @ Language Technologies Laboratory - BSC"""
+__email__ = 'luis.vasquez@bsc.es'
 __version__ = '0.1.0'
 
 import logging
