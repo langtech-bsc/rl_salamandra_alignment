@@ -8,10 +8,10 @@ version = "0.1.0"
 description = "Aligning Salamandra Models using Reinforcement Learning"
 readme = "README.rst"
 authors = [
-  {name = "LangTech BSC", email = "langtech@bsc.es"}
+  {name = "Luis Antonio Vasquez Reina @ Language Technologies Laboratory - BSC", email = "luis.vasquez@bsc.es"}
 ]
 maintainers = [
-  {name = "LangTech BSC", email = "langtech@bsc.es"}
+  {name = "Luis Antonio Vasquez Reina @ Language Technologies Laboratory - BSC", email = "luis.vasquez@bsc.es"}
 ]
 classifiers = [
 
