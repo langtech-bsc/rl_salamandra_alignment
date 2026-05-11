@@ -5,7 +5,7 @@ Credits
 Development Lead
 ----------------
 
-* LangTech BSC <langtech@bsc.es>
+* Language Technologies Laboratory - BSC
 
 Contributors
 ------------
